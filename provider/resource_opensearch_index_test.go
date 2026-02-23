@@ -924,6 +924,54 @@ func checkOpensearchAliasExists(indexName, aliasName string) resource.TestCheckF
 	}
 }
 
+// TestAccOpensearchIndex_invalidSettings tests error handling for invalid index settings
+func TestAccOpensearchIndex_invalidSettings(t *testing.T) {
+	resource.Test(t, resource.TestCase{
+		PreCheck:     func() { testAccPreCheck(t) },
+		Providers:    testAccProviders,
+		CheckDestroy: checkOpensearchIndexDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config:      testAccOpensearchIndexInvalidSettings,
+				ExpectError: regexp.MustCompile("(is not a valid|Failed to create index|invalid)"),
+			},
+		},
+	})
+}
+
+// TestAccOpensearchIndex_invalidMappingJSON tests error handling for malformed JSON in mappings
+func TestAccOpensearchIndex_invalidMappingJSON(t *testing.T) {
+	resource.Test(t, resource.TestCase{
+		PreCheck:     func() { testAccPreCheck(t) },
+		Providers:    testAccProviders,
+		CheckDestroy: checkOpensearchIndexDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config:      testAccOpensearchIndexInvalidMappingJSON,
+				ExpectError: regexp.MustCompile("(Failed to parse mapping|invalid character|unexpected end of JSON)"),
+			},
+		},
+	})
+}
+
+var testAccOpensearchIndexInvalidSettings = `
+resource "opensearch_index" "test_invalid_settings" {
+  name = "terraform-test-invalid-settings"
+  number_of_shards = -1
+}
+`
+
+var testAccOpensearchIndexInvalidMappingJSON = `
+resource "opensearch_index" "test_invalid_mapping" {
+  name = "terraform-test-invalid-mapping"
+  mappings = <<EOF
+{
+  "invalid": "json" "missing": "comma"
+}
+EOF
+}
+`
+
 const testAccOpensearchIndexUpdateAlias = `
 resource "opensearch_index" "test" {
   name               = "terraform-test-update-alias"

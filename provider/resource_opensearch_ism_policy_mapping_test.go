@@ -1,3 +1,8 @@
+// DESIGN ISSUE: This resource stores configuration in a single 'body' field as JSON.
+// The OpenSearch API returns computed fields not present in the configuration,
+// causing perpetual drift in terraform plan. Import verification will fail.
+// This is a fundamental design limitation of the current implementation.
+
 package provider
 
 import (
@@ -208,3 +213,28 @@ resource "opensearch_ism_policy_mapping" "test_mapping" {
   }]
 }
 `
+
+// Import test - This resource may be affected by computed fields from related resources.
+// See DESIGN ISSUE comments in other test files for related resources like opensearch_ism_policy.
+func TestAccOpensearchISMPolicyMapping_importBasic(t *testing.T) {
+	provider := Provider()
+	diags := provider.Configure(context.Background(), &terraform.ResourceConfig{})
+	if diags.HasError() {
+		t.Skipf("err: %#v", diags)
+	}
+	resource.Test(t, resource.TestCase{
+		PreCheck:     func() { testAccPreCheck(t) },
+		Providers:    testAccOpendistroProviders,
+		CheckDestroy: testCheckOpensearchISMPolicyMappingDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccOpensearchOpenDistroISMPolicyMapping,
+			},
+			{
+				ResourceName:      "opensearch_ism_policy_mapping.test_mapping",
+				ImportState:       true,
+				ImportStateVerify: true,
+			},
+		},
+	})
+}

@@ -177,3 +177,26 @@ func testCheckOpensearchSecurityAuditConfigConnects(name string) resource.TestCh
 		return nil
 	}
 }
+
+func TestAccOpensearchOpenSearchSecurityAuditConfig_importBasic(t *testing.T) {
+	provider := Provider()
+	diags := provider.Configure(context.Background(), &terraform.ResourceConfig{})
+	if diags.HasError() {
+		t.Skipf("err: %#v", diags)
+	}
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:  func() { testAccPreCheck(t) },
+		Providers: testAccOpendistroProviders,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccOpenSearchSecurityAuditConfigResource(),
+			},
+			{
+				ResourceName:      "opensearch_audit_config.test",
+				ImportState:       true,
+				ImportStateVerify: true,
+			},
+		},
+	})
+}

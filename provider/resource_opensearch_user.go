@@ -17,6 +17,13 @@ var openDistroUserSchema = map[string]*schema.Schema{
 		Description: "The name of the security user.",
 		Type:        schema.TypeString,
 		Required:    true,
+		ValidateFunc: func(v interface{}, k string) (warnings []string, errors []error) {
+			username := v.(string)
+			if len(username) == 0 {
+				errors = append(errors, fmt.Errorf("%s must not be empty", k))
+			}
+			return warnings, errors
+		},
 	},
 	"password": {
 		Description:   "The plain text password for the user, cannot be specified with `password_hash`. Some implementations may enforce a password policy. Invalid passwords may cause a non-descriptive HTTP 400 Bad Request error. For AWS OpenSearch domains \"password must be at least 8 characters long and contain at least one uppercase letter, one lowercase letter, one digit, and one special character\".",
@@ -92,6 +99,7 @@ func resourceOpensearchOpenDistroUserRead(d *schema.ResourceData, m interface{})
 	}
 
 	ds := &resourceDataSetter{d: d}
+	ds.set("username", d.Id())
 	ds.set("backend_roles", res.BackendRoles)
 	ds.set("attributes", res.Attributes)
 	ds.set("description", res.Description)

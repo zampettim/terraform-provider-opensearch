@@ -110,3 +110,37 @@ resource "opensearch_snapshot_repository" "test" {
   }
 }
 `
+
+var testAccOpensearchSnapshotRepositoryUpdated = `
+resource "opensearch_snapshot_repository" "test" {
+  name = "terraform-test"
+  type = "fs"
+
+  settings = {
+    location = "/tmp/opensearch-updated"
+    compress = "true"
+  }
+}
+`
+
+func TestAccOpensearchSnapshotRepository_update(t *testing.T) {
+	resource.Test(t, resource.TestCase{
+		PreCheck:     func() { testAccPreCheck(t) },
+		Providers:    testAccProviders,
+		CheckDestroy: testCheckOpensearchSnapshotRepositoryDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccOpensearchSnapshotRepository,
+				Check: resource.ComposeTestCheckFunc(
+					testCheckOpensearchSnapshotRepositoryExists("opensearch_snapshot_repository.test"),
+				),
+			},
+			{
+				Config: testAccOpensearchSnapshotRepositoryUpdated,
+				Check: resource.ComposeTestCheckFunc(
+					testCheckOpensearchSnapshotRepositoryExists("opensearch_snapshot_repository.test"),
+				),
+			},
+		},
+	})
+}

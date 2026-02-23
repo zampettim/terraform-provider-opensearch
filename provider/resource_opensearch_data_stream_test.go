@@ -89,6 +89,29 @@ func testCheckOpensearchDataStreamDestroy(s *terraform.State) error {
 	return nil
 }
 
+func TestAccOpensearchDataStream_importBasic(t *testing.T) {
+	provider := Provider()
+	diags := provider.Configure(context.Background(), &terraform.ResourceConfig{})
+	if diags.HasError() {
+		t.Skipf("err: %#v", diags)
+	}
+	resource.Test(t, resource.TestCase{
+		PreCheck:     func() { testAccPreCheck(t) },
+		Providers:    testAccProviders,
+		CheckDestroy: testCheckOpensearchDataStreamDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccOpensearchDataStream,
+			},
+			{
+				ResourceName:      "opensearch_data_stream.foo",
+				ImportState:       true,
+				ImportStateVerify: true,
+			},
+		},
+	})
+}
+
 var testAccOpensearchDataStream = `
 resource "opensearch_composable_index_template" "foo" {
   name = "foo-template"
@@ -105,3 +128,61 @@ resource "opensearch_data_stream" "foo" {
   depends_on = [opensearch_composable_index_template.foo]
 }
 `
+
+var testAccOpensearchDataStreamUpdated = `
+resource "opensearch_composable_index_template" "foo" {
+  name = "foo-template"
+  body = <<EOF
+{
+  "index_patterns": ["foo-data-stream*"],
+  "data_stream": {},
+  "template": {
+    "settings": {
+      "index": {
+        "number_of_shards": "1"
+      }
+    }
+  }
+}
+EOF
+}
+
+resource "opensearch_data_stream" "foo" {
+  name       = "foo-data-stream"
+  depends_on = [opensearch_composable_index_template.foo]
+}
+`
+
+func TestAccOpensearchDataStream_update(t *testing.T) {
+	provider := Provider()
+	diags := provider.Configure(context.Background(), &terraform.ResourceConfig{})
+	if diags.HasError() {
+		t.Skipf("err: %#v", diags)
+	}
+	var allowed bool = true
+	resource.Test(t, resource.TestCase{
+		PreCheck: func() {
+			testAccPreCheck(t)
+
+			if !allowed {
+				t.Skip("/_data_stream endpoint only supported on OS >= 2.0.0")
+			}
+		},
+		Providers:    testAccProviders,
+		CheckDestroy: testCheckOpensearchDataStreamDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccOpensearchDataStream,
+				Check: resource.ComposeTestCheckFunc(
+					testCheckOpensearchDataStreamExists("opensearch_data_stream.foo"),
+				),
+			},
+			{
+				Config: testAccOpensearchDataStreamUpdated,
+				Check: resource.ComposeTestCheckFunc(
+					testCheckOpensearchDataStreamExists("opensearch_data_stream.foo"),
+				),
+			},
+		},
+	})
+}

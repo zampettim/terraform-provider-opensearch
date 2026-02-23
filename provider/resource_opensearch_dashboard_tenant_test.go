@@ -121,3 +121,27 @@ resource "opensearch_dashboard_tenant" "test" {
 }
 	`, resourceName)
 }
+
+func TestAccOpensearchDashboardTenant_importBasic(t *testing.T) {
+	provider := Provider()
+	diags := provider.Configure(context.Background(), &terraform.ResourceConfig{})
+	if diags.HasError() {
+		t.Skipf("err: %#v", diags)
+	}
+	randomName := "test" + acctest.RandStringFromCharSet(10, acctest.CharSetAlpha)
+	resource.Test(t, resource.TestCase{
+		PreCheck:     func() { testAccPreCheck(t) },
+		Providers:    testAccOpendistroProviders,
+		CheckDestroy: testAccCheckOpensearchDashboardTenantDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccOpenDistroDashboardTenantResource(randomName),
+			},
+			{
+				ResourceName:      "opensearch_dashboard_tenant.test",
+				ImportState:       true,
+				ImportStateVerify: true,
+			},
+		},
+	})
+}

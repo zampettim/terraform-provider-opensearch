@@ -84,6 +84,24 @@ func testCheckOpensearchScriptDestroy(s *terraform.State) error {
 	return nil
 }
 
+func TestAccOpensearchScript_importBasic(t *testing.T) {
+	resource.Test(t, resource.TestCase{
+		PreCheck:     func() { testAccPreCheck(t) },
+		Providers:    testAccProviders,
+		CheckDestroy: testCheckOpensearchScriptDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccOpensearchScript,
+			},
+			{
+				ResourceName:      "opensearch_script.test_script",
+				ImportState:       true,
+				ImportStateVerify: true,
+			},
+		},
+	})
+}
+
 var testAccOpensearchScript = `
 resource "opensearch_script" "test_script" {
   script_id = "my_script"
@@ -91,3 +109,33 @@ resource "opensearch_script" "test_script" {
   source    = "Math.log(_score * 2) + params.my_modifier"
 }
 `
+
+var testAccOpensearchScriptUpdated = `
+resource "opensearch_script" "test_script" {
+  script_id = "my_script"
+  lang      = "painless"
+  source    = "Math.log(_score * 3) + params.my_modifier + params.extra_param"
+}
+`
+
+func TestAccOpensearchScript_update(t *testing.T) {
+	resource.Test(t, resource.TestCase{
+		PreCheck:     func() { testAccPreCheck(t) },
+		Providers:    testAccProviders,
+		CheckDestroy: testCheckOpensearchScriptDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccOpensearchScript,
+				Check: resource.ComposeTestCheckFunc(
+					testCheckOpensearchScriptExists("opensearch_script.test_script"),
+				),
+			},
+			{
+				Config: testAccOpensearchScriptUpdated,
+				Check: resource.ComposeTestCheckFunc(
+					testCheckOpensearchScriptExists("opensearch_script.test_script"),
+				),
+			},
+		},
+	})
+}

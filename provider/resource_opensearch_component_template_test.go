@@ -152,3 +152,68 @@ resource "opensearch_component_template" "test" {
 EOF
 }
 `
+
+var testAccOpensearchComponentTemplateUpdated = `
+resource "opensearch_component_template" "test" {
+  name = "terraform-test"
+  body = <<EOF
+{
+  "template": {
+    "settings": {
+      "index": {
+        "number_of_shards": 2,
+        "number_of_replicas": 1
+      }
+    },
+    "mappings": {
+      "properties": {
+        "host_name": {
+          "type": "keyword"
+        },
+        "created_at": {
+          "type": "date",
+          "format": "EEE MMM dd HH:mm:ss Z yyyy"
+        }
+      }
+    },
+    "aliases": {
+      "mydata": { }
+    }
+  }
+}
+EOF
+}
+`
+
+func TestAccOpensearchComponentTemplate_update(t *testing.T) {
+	provider := Provider()
+	diags := provider.Configure(context.Background(), &terraform.ResourceConfig{})
+	if diags.HasError() {
+		t.Skipf("err: %#v", diags)
+	}
+	var allowed bool = true
+	resource.Test(t, resource.TestCase{
+		PreCheck: func() {
+			testAccPreCheck(t)
+			if !allowed {
+				t.Skip("/_component_template endpoint only supported on OS >= 2.0.0")
+			}
+		},
+		Providers:    testAccProviders,
+		CheckDestroy: testCheckOpensearchComponentTemplateDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccOpensearchComponentTemplate,
+				Check: resource.ComposeTestCheckFunc(
+					testCheckOpensearchComponentTemplateExists("opensearch_component_template.test"),
+				),
+			},
+			{
+				Config: testAccOpensearchComponentTemplateUpdated,
+				Check: resource.ComposeTestCheckFunc(
+					testCheckOpensearchComponentTemplateExists("opensearch_component_template.test"),
+				),
+			},
+		},
+	})
+}

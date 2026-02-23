@@ -3,6 +3,7 @@ package provider
 import (
 	"context"
 	"fmt"
+	"regexp"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/acctest"
@@ -165,6 +166,35 @@ func testCheckOpensearchUserConnects(name string) resource.TestCheckFunc {
 	return testCheckOpensearchUserExists(name)
 }
 
+func TestAccOpensearchOpenDistroUser_importBasic(t *testing.T) {
+	provider := Provider()
+	diags := provider.Configure(context.Background(), &terraform.ResourceConfig{})
+	if diags.HasError() {
+		t.Skipf("err: %#v", diags)
+	}
+
+	randomName := "test" + acctest.RandStringFromCharSet(10, acctest.CharSetAlpha)
+
+	resource.Test(t, resource.TestCase{
+		PreCheck: func() {
+			testAccPreCheck(t)
+		},
+		Providers:    testAccOpendistroProviders,
+		CheckDestroy: testAccCheckOpensearchUserDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccOpenDistroUserResource(randomName),
+			},
+			{
+				ResourceName:            "opensearch_user.test",
+				ImportState:             true,
+				ImportStateVerify:       true,
+				ImportStateVerifyIgnore: []string{"password"},
+			},
+		},
+	})
+}
+
 func testAccOpenDistroUserResource(resourceName string) string {
 	return fmt.Sprintf(`
 resource "opensearch_user" "test" {
@@ -245,3 +275,87 @@ resource "opensearch_user" "testuser3" {
 }
 	`, resourceName, resourceName, resourceName)
 }
+
+func TestAccOpensearchUser_validationError_EmptyUsername(t *testing.T) {
+	provider := Provider()
+	diags := provider.Configure(context.Background(), &terraform.ResourceConfig{})
+	if diags.HasError() {
+		t.Skipf("err: %#v", diags)
+	}
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:     func() { testAccPreCheck(t) },
+		Providers:    testAccOpendistroProviders,
+		CheckDestroy: testAccCheckOpensearchUserDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config:      testAccUserValidationErrorEmptyUsername,
+				ExpectError: regexp.MustCompile(`username must not be empty`),
+			},
+		},
+	})
+}
+
+func TestAccOpensearchUser_validationError_InvalidBackendRoles(t *testing.T) {
+	provider := Provider()
+	diags := provider.Configure(context.Background(), &terraform.ResourceConfig{})
+	if diags.HasError() {
+		t.Skipf("err: %#v", diags)
+	}
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:     func() { testAccPreCheck(t) },
+		Providers:    testAccOpendistroProviders,
+		CheckDestroy: testAccCheckOpensearchUserDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config:      testAccUserValidationErrorInvalidBackendRoles,
+				ExpectError: regexp.MustCompile("backend_roles|must be a list"),
+			},
+		},
+	})
+}
+
+func TestAccOpensearchUser_validationError_MissingPassword(t *testing.T) {
+	provider := Provider()
+	diags := provider.Configure(context.Background(), &terraform.ResourceConfig{})
+	if diags.HasError() {
+		t.Skipf("err: %#v", diags)
+	}
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:     func() { testAccPreCheck(t) },
+		Providers:    testAccOpendistroProviders,
+		CheckDestroy: testAccCheckOpensearchUserDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config:      testAccUserValidationErrorMissingPassword,
+				ExpectError: regexp.MustCompile("password|password_hash|required"),
+			},
+		},
+	})
+}
+
+var testAccUserValidationErrorEmptyUsername = `
+resource "opensearch_user" "test_validation" {
+  username    = ""
+  password    = "testpassword123"
+  description = "test"
+}
+`
+
+var testAccUserValidationErrorInvalidBackendRoles = `
+resource "opensearch_user" "test_validation" {
+  username      = "test_user"
+  password      = "testpassword123"
+  description   = "test"
+  backend_roles = "invalid_string"
+}
+`
+
+var testAccUserValidationErrorMissingPassword = `
+resource "opensearch_user" "test_validation" {
+  username    = "test_user"
+  description = "test user without password"
+}
+`

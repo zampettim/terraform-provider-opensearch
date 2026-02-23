@@ -133,3 +133,59 @@ resource "opensearch_ingest_pipeline" "test" {
 EOF
 }
 `
+
+var testAccOpensearchIngestPipelineV7Updated = `
+resource "opensearch_ingest_pipeline" "test" {
+  name = "terraform-test"
+  body = <<EOF
+{
+  "description" : "updated pipeline description",
+  "version": 456,
+  "processors" : [
+    {
+      "set" : {
+        "field": "bar",
+        "value": "baz"
+      }
+    },
+    {
+      "remove" : {
+        "field": "foo"
+      }
+    }
+  ]
+}
+EOF
+}
+`
+
+func TestAccOpensearchIngestPipeline_update(t *testing.T) {
+	provider := Provider()
+	diags := provider.Configure(context.Background(), &terraform.ResourceConfig{})
+	if diags.HasError() {
+		t.Skipf("err: %#v", diags)
+	}
+	config := testAccOpensearchIngestPipelineV7
+
+	resource.Test(t, resource.TestCase{
+		PreCheck: func() {
+			testAccPreCheck(t)
+		},
+		Providers:    testAccProviders,
+		CheckDestroy: testCheckOpensearchIngestPipelineDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config: config,
+				Check: resource.ComposeTestCheckFunc(
+					testCheckOpensearchIngestPipelineExists("opensearch_ingest_pipeline.test"),
+				),
+			},
+			{
+				Config: testAccOpensearchIngestPipelineV7Updated,
+				Check: resource.ComposeTestCheckFunc(
+					testCheckOpensearchIngestPipelineExists("opensearch_ingest_pipeline.test"),
+				),
+			},
+		},
+	})
+}

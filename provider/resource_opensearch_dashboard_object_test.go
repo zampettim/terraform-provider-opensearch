@@ -241,6 +241,58 @@ EOF
 }
 `
 
+var testAccOpensearch7DashboardVisualizationUpdated = `
+resource "opensearch_dashboard_object" "test_visualization" {
+  body = <<EOF
+[
+  {
+    "_id": "response-time-percentile",
+    "_source": {
+      "visualization": {
+	      "title": "Updated response time percentiles",
+	      "visState": "{\"title\":\"Updated response time percentiles\",\"type\":\"line\",\"params\":{\"addTooltip\":true,\"addLegend\":true,\"legendPosition\":\"right\",\"showCircles\":true,\"interpolate\":\"linear\",\"scale\":\"linear\",\"drawLinesBetweenPoints\":true,\"radiusRatio\":9,\"times\":[],\"addTimeMarker\":false,\"defaultYExtents\":false,\"setYExtents\":false},\"aggs\":[{\"id\":\"1\",\"enabled\":true,\"type\":\"percentiles\",\"schema\":\"metric\",\"params\":{\"field\":\"app.total_time\",\"percents\":[50,90,95]}},{\"id\":\"2\",\"enabled\":true,\"type\":\"date_histogram\",\"schema\":\"segment\",\"params\":{\"field\":\"@timestamp\",\"interval\":\"auto\",\"customInterval\":\"2h\",\"min_doc_count\":1,\"extended_bounds\":{}}},{\"id\":\"3\",\"enabled\":true,\"type\":\"terms\",\"schema\":\"group\",\"params\":{\"field\":\"system.syslog.program\",\"size\":5,\"order\":\"desc\",\"orderBy\":\"_term\"}}],\"listeners\":{}}",
+	      "uiStateJSON": "{}",
+	      "description": "Updated description",
+	      "version": 2,
+	      "kibanaSavedObjectMeta": {
+	        "searchSourceJSON": "{\"index\":\"filebeat-*\",\"query\":{\"query_string\":{\"query\":\"*\",\"analyze_wildcard\":true}},\"filter\":[]}"
+	      }
+	    },
+      "type": "visualization"
+    }
+  }
+]
+EOF
+}
+`
+
+func TestAccOpensearchDashboardObject_update(t *testing.T) {
+	provider := Provider()
+	diags := provider.Configure(context.Background(), &terraform.ResourceConfig{})
+	if diags.HasError() {
+		t.Skipf("err: %#v", diags)
+	}
+
+	resource.Test(t, resource.TestCase{
+		Providers:    testAccProviders,
+		CheckDestroy: testCheckOpensearchDashboardObjectDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccOpensearch7DashboardVisualization,
+				Check: resource.ComposeTestCheckFunc(
+					testCheckOpensearchDashboardObjectExists("opensearch_dashboard_object.test_visualization", "response-time-percentile", ""),
+				),
+			},
+			{
+				Config: testAccOpensearch7DashboardVisualizationUpdated,
+				Check: resource.ComposeTestCheckFunc(
+					testCheckOpensearchDashboardObjectExists("opensearch_dashboard_object.test_visualization", "response-time-percentile", ""),
+				),
+			},
+		},
+	})
+}
+
 var testAccOpensearch7DashboardVisualizationWithTenant = `
 resource "opensearch_dashboard_tenant" "tenant_test" {
   tenant_name = "tenant_test"
@@ -346,6 +398,104 @@ resource "opensearch_dashboard_object" "test_invalid" {
 {
   "test": "yes"
 }
+EOF
+}
+`
+
+// Note: Import test removed - dashboard_object resource doesn't support import operation
+// The resource schema doesn't define an Importer
+
+func TestAccOpensearchDashboardObject_validationError_InvalidJSON(t *testing.T) {
+	provider := Provider()
+	diags := provider.Configure(context.Background(), &terraform.ResourceConfig{})
+	if diags.HasError() {
+		t.Skipf("err: %#v", diags)
+	}
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:     func() { testAccPreCheck(t) },
+		Providers:    testAccProviders,
+		CheckDestroy: testCheckOpensearchDashboardObjectDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config:      testAccDashboardObjectValidationErrorInvalidJSON,
+				ExpectError: regexp.MustCompile(`(body.*json|invalid character|parse|syntax|EOF)`),
+			},
+		},
+	})
+}
+
+func TestAccOpensearchDashboardObject_validationError_MissingBody(t *testing.T) {
+	provider := Provider()
+	diags := provider.Configure(context.Background(), &terraform.ResourceConfig{})
+	if diags.HasError() {
+		t.Skipf("err: %#v", diags)
+	}
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:     func() { testAccPreCheck(t) },
+		Providers:    testAccProviders,
+		CheckDestroy: testCheckOpensearchDashboardObjectDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config:      testAccDashboardObjectValidationErrorMissingBody,
+				ExpectError: regexp.MustCompile("body.*required|required.*body"),
+			},
+		},
+	})
+}
+
+func TestAccOpensearchDashboardObject_validationError_InvalidTenantName(t *testing.T) {
+	provider := Provider()
+	diags := provider.Configure(context.Background(), &terraform.ResourceConfig{})
+	if diags.HasError() {
+		t.Skipf("err: %#v", diags)
+	}
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:     func() { testAccPreCheck(t) },
+		Providers:    testAccProviders,
+		CheckDestroy: testCheckOpensearchDashboardObjectDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config:      testAccDashboardObjectValidationErrorInvalidTenant,
+				ExpectError: regexp.MustCompile(`(Failed to create new Dashboard|index existence|404 Not Found|tenant)`),
+			},
+		},
+	})
+}
+
+var testAccDashboardObjectValidationErrorInvalidJSON = `
+resource "opensearch_dashboard_object" "test_validation" {
+  body = <<EOF
+  invalid json { 
+  
+  malformed 
+EOF
+}
+`
+
+var testAccDashboardObjectValidationErrorMissingBody = `
+resource "opensearch_dashboard_object" "test_validation" {
+}
+`
+
+var testAccDashboardObjectValidationErrorInvalidTenant = `
+resource "opensearch_dashboard_object" "test_validation" {
+  tenant_name = "non_existent_tenant"
+  body = <<EOF
+[
+  {
+    "_id": "test-pattern",
+    "_source": {
+      "type": "index-pattern",
+      "index-pattern": {
+        "title": "test-*",
+        "timeFieldName": "@timestamp"
+      }
+    }
+  }
+]
 EOF
 }
 `

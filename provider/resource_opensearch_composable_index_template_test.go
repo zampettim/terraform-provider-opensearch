@@ -158,3 +158,72 @@ resource "opensearch_composable_index_template" "test" {
 EOF
 }
 `
+
+var testAccOpensearchComposableIndexTemplateUpdated = `
+resource "opensearch_composable_index_template" "test" {
+  name = "terraform-test"
+  body = <<EOF
+{
+  "index_patterns": ["te*", "bar*", "baz*"],
+  "template": {
+    "settings": {
+      "index": {
+        "number_of_shards": "2"
+      }
+    },
+    "mappings": {
+      "properties": {
+        "host_name": {
+          "type": "keyword"
+        },
+        "created_at": {
+          "type": "date",
+          "format": "EEE MMM dd HH:mm:ss Z yyyy"
+        }
+      }
+    },
+    "aliases": {
+      "mydata": { }
+    }
+  },
+  "priority": 300,
+  "version": 4,
+  "data_stream": {}
+}
+EOF
+}
+`
+
+func TestAccOpensearchComposableIndexTemplate_update(t *testing.T) {
+	provider := Provider()
+	diags := provider.Configure(context.Background(), &terraform.ResourceConfig{})
+	if diags.HasError() {
+		t.Skipf("err: %#v", diags)
+	}
+
+	var allowed bool = true
+	resource.Test(t, resource.TestCase{
+		PreCheck: func() {
+			testAccPreCheck(t)
+			if !allowed {
+				t.Skip("/_index_template endpoint only supported on OS >= 2.0.0")
+			}
+		},
+		Providers:    testAccProviders,
+		CheckDestroy: testCheckOpensearchComposableIndexTemplateDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccOpensearchComposableIndexTemplate,
+				Check: resource.ComposeTestCheckFunc(
+					testCheckOpensearchComposableIndexTemplateExists("opensearch_composable_index_template.test"),
+				),
+			},
+			{
+				Config: testAccOpensearchComposableIndexTemplateUpdated,
+				Check: resource.ComposeTestCheckFunc(
+					testCheckOpensearchComposableIndexTemplateExists("opensearch_composable_index_template.test"),
+				),
+			},
+		},
+	})
+}

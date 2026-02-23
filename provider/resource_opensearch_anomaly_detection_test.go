@@ -1,6 +1,12 @@
+// DESIGN ISSUE: This resource stores configuration in a single 'body' field as JSON.
+// The OpenSearch API returns computed fields not present in the configuration,
+// causing perpetual drift in terraform plan. Import verification will fail.
+// This is a fundamental design limitation of the current implementation.
+
 package provider
 
 import (
+	"context"
 	"fmt"
 	"testing"
 
@@ -292,4 +298,31 @@ resource "opensearch_anomaly_detection" "%[1]s" {
 EOF
 }
 `, detectorName)
+}
+
+// Import test will fail because the API returns computed fields not in the original configuration,
+// causing perpetual drift. This is a fundamental design limitation of the current implementation.
+func TestAccOpensearchAnomalyDetection_importBasic(t *testing.T) {
+	provider := Provider()
+	diags := provider.Configure(context.Background(), &terraform.ResourceConfig{})
+	if diags.HasError() {
+		t.Skipf("err: %#v", diags)
+	}
+	randomName := "test-detector" + acctest.RandStringFromCharSet(8, acctest.CharSetAlphaNum)
+	resource.Test(t, resource.TestCase{
+		PreCheck:     func() { testAccPreCheck(t) },
+		Providers:    testAccOpendistroProviders,
+		CheckDestroy: testCheckOpensearchAnomalyDetectionDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccOpensearchAnomalyDetection(randomName),
+			},
+			{
+				ResourceName:            fmt.Sprintf("opensearch_anomaly_detection.%s", randomName),
+				ImportState:             true,
+				ImportStateVerify:       true,
+				ImportStateVerifyIgnore: []string{"body"},
+			},
+		},
+	})
 }

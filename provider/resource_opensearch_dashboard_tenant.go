@@ -232,9 +232,10 @@ func resourceOpensearchPutOpenDistroDashboardTenant(d *schema.ResourceData, m in
 			time.Sleep(time.Duration(attempt*100) * time.Millisecond)
 		}
 
-		req, err := http.NewRequest("PUT", client.config.rawUrl+path, strings.NewReader(string(tenantJSON)))
+		// Use PATCH method for OpenSearch 2.x security API compatibility
+		req, err := http.NewRequest("PATCH", client.config.rawUrl+path, strings.NewReader(string(tenantJSON)))
 		if err != nil {
-			return response, fmt.Errorf("error building PUT request: %w", err)
+			return response, fmt.Errorf("error building PATCH request: %w", err)
 		}
 		req.Header.Set("Content-Type", "application/json")
 

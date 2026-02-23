@@ -3,6 +3,7 @@ package provider
 import (
 	"context"
 	"fmt"
+	"regexp"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
@@ -141,6 +142,138 @@ resource "opensearch_index_template" "test" {
     }
   }
 }
+EOF
+}
+`
+
+var testAccOpensearchIndexTemplateV7Updated = `
+resource "opensearch_index_template" "test" {
+  name = "terraform-test"
+  body = <<EOF
+{
+  "index_patterns": [
+    "logs-2020-02-*"
+  ],
+  "aliases": {
+    "my_logs_updated": {}
+  },
+  "mappings": {
+    "properties": {
+      "timestamp": {
+        "type": "date",
+        "format": "yyyy-MM-dd HH:mm:ss||yyyy-MM-dd||epoch_millis"
+      },
+      "value": {
+        "type": "long"
+      }
+    }
+  }
+}
+EOF
+}
+`
+
+func TestAccOpensearchIndexTemplate_update(t *testing.T) {
+	provider := Provider()
+	diags := provider.Configure(context.Background(), &terraform.ResourceConfig{})
+	if diags.HasError() {
+		t.Skipf("err: %#v", diags)
+	}
+	var config string = testAccOpensearchIndexTemplateV7
+	resource.Test(t, resource.TestCase{
+		PreCheck: func() {
+			testAccPreCheck(t)
+		},
+		Providers:    testAccProviders,
+		CheckDestroy: testCheckOpensearchIndexTemplateDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config: config,
+				Check: resource.ComposeTestCheckFunc(
+					testCheckOpensearchIndexTemplateExists("opensearch_index_template.test"),
+				),
+			},
+			{
+				Config: testAccOpensearchIndexTemplateV7Updated,
+				Check: resource.ComposeTestCheckFunc(
+					testCheckOpensearchIndexTemplateExists("opensearch_index_template.test"),
+				),
+			},
+		},
+	})
+}
+
+func TestAccOpensearchIndexTemplate_validationError_InvalidTemplate(t *testing.T) {
+	provider := Provider()
+	diags := provider.Configure(context.Background(), &terraform.ResourceConfig{})
+	if diags.HasError() {
+		t.Skipf("err: %#v", diags)
+	}
+
+	resource.Test(t, resource.TestCase{
+		PreCheck: func() {
+			testAccPreCheck(t)
+		},
+		Providers:    testAccProviders,
+		CheckDestroy: testCheckOpensearchIndexTemplateDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config:      testAccIndexTemplateValidationErrorInvalidJSON,
+				ExpectError: regexp.MustCompile(`(body.*json|invalid character|parse|template.*error)`),
+			},
+		},
+	})
+}
+
+func TestAccOpensearchIndexTemplate_validationError_MissingIndexPatterns(t *testing.T) {
+	provider := Provider()
+	diags := provider.Configure(context.Background(), &terraform.ResourceConfig{})
+	if diags.HasError() {
+		t.Skipf("err: %#v", diags)
+	}
+
+	resource.Test(t, resource.TestCase{
+		PreCheck: func() {
+			testAccPreCheck(t)
+		},
+		Providers:    testAccProviders,
+		CheckDestroy: testCheckOpensearchIndexTemplateDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config:      testAccIndexTemplateValidationErrorMissingIndexPatterns,
+				ExpectError: regexp.MustCompile("index_patterns|required|missing"),
+			},
+		},
+	})
+}
+
+var testAccIndexTemplateValidationErrorInvalidJSON = `
+resource "opensearch_index_template" "test_validation" {
+  name = "test_validation"
+  body = <<EOF
+  invalid template { 
+  
+  malformed 
+EOF
+}
+`
+
+var testAccIndexTemplateValidationErrorMissingIndexPatterns = `
+resource "opensearch_index_template" "test_validation" {
+  name = "test_validation"
+  body = <<EOF
+  {
+    "aliases": {
+      "my_alias": {}
+    },
+    "mappings": {
+      "properties": {
+        "field1": {
+          "type": "text"
+        }
+      }
+    }
+  }
 EOF
 }
 `

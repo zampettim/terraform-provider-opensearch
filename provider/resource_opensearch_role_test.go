@@ -3,6 +3,7 @@ package provider
 import (
 	"context"
 	"fmt"
+	"regexp"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/acctest"
@@ -300,3 +301,72 @@ resource "opensearch_role" "test" {
 }
 	`, resourceName)
 }
+
+func TestAccOpensearchRole_validationError_EmptyRoleName(t *testing.T) {
+	provider := Provider()
+	diags := provider.Configure(context.Background(), &terraform.ResourceConfig{})
+	if diags.HasError() {
+		t.Skipf("err: %#v", diags)
+	}
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:     func() { testAccPreCheck(t) },
+		Providers:    testAccOpendistroProviders,
+		CheckDestroy: testAccCheckOpensearchRoleDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config:      testAccRoleValidationErrorEmptyRoleName,
+				ExpectError: regexp.MustCompile(`role_name must not be empty`),
+			},
+		},
+	})
+}
+
+func TestAccOpensearchRole_validationError_InvalidIndexPatterns(t *testing.T) {
+	provider := Provider()
+	diags := provider.Configure(context.Background(), &terraform.ResourceConfig{})
+	if diags.HasError() {
+		t.Skipf("err: %#v", diags)
+	}
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:     func() { testAccPreCheck(t) },
+		Providers:    testAccOpendistroProviders,
+		CheckDestroy: testAccCheckOpensearchRoleDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config:      testAccRoleValidationErrorInvalidIndexPatterns,
+				ExpectError: regexp.MustCompile("index_patterns|must be a list"),
+			},
+		},
+	})
+}
+
+// Note: Skipped - The API allows roles with empty cluster_permissions and index_permissions.
+// This is valid according to OpenSearch security API behavior.
+func TestAccOpensearchRole_validationError_EmptyClusterPermissions(t *testing.T) {
+	t.Skip("API allows empty cluster_permissions - not a validation error")
+}
+
+var testAccRoleValidationErrorEmptyRoleName = `
+resource "opensearch_role" "test_validation" {
+  role_name           = ""
+  cluster_permissions = ["cluster_monitor"]
+}
+`
+
+var testAccRoleValidationErrorInvalidIndexPatterns = `
+resource "opensearch_role" "test_validation" {
+  role_name = "test_role"
+  index_permissions {
+    index_patterns  = "invalid_string"
+    allowed_actions = ["read"]
+  }
+}
+`
+
+var testAccRoleValidationErrorEmptyClusterPermissions = `
+resource "opensearch_role" "test_validation" {
+  role_name = "test_role"
+}
+`

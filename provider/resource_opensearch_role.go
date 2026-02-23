@@ -18,6 +18,13 @@ var openDistroRoleSchema = map[string]*schema.Schema{
 		Type:        schema.TypeString,
 		Required:    true,
 		ForceNew:    true,
+		ValidateFunc: func(v interface{}, k string) (warnings []string, errors []error) {
+			roleName := v.(string)
+			if len(roleName) == 0 {
+				errors = append(errors, fmt.Errorf("%s must not be empty", k))
+			}
+			return warnings, errors
+		},
 	},
 	"cluster_permissions": {
 		Description: "A list of cluster permissions.",

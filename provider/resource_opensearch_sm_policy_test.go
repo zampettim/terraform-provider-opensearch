@@ -1,3 +1,8 @@
+// DESIGN ISSUE: This resource stores configuration in a single 'body' field as JSON.
+// The OpenSearch API returns computed fields not present in the configuration,
+// causing perpetual drift in terraform plan. Import verification will fail.
+// This is a fundamental design limitation of the current implementation.
+
 package provider
 
 import (
@@ -140,3 +145,122 @@ resource "opensearch_sm_policy" "test_policy" {
   EOF
 }
 `
+
+var testAccOpensearchSMPolicyV7Updated = `
+resource "opensearch_snapshot_repository" "test" {
+  name = "terraform-test"
+  type = "fs"
+
+  settings = {
+    location = "/tmp/opensearch"
+  }
+}
+
+resource "opensearch_sm_policy" "test_policy" {
+  policy_name = "test_policy"
+  body        = <<EOF
+  {
+		"enabled": false,
+		"description": "Updated test policy",
+		"creation": {
+			"schedule": {
+				"cron": {
+					"expression": "0 0 * * *",
+					"timezone": "UTC"
+				}
+			},
+			"time_limit": "2h"
+		},
+		"deletion": {
+			"schedule": {
+				"cron": {
+					"expression": "0 2 * * *",
+					"timezone": "UTC"
+				}
+			},
+			"condition": {
+				"max_age": "7d",
+				"max_count": 200,
+				"min_count": 1
+			},
+			"time_limit": "2h"
+		},
+		"snapshot_config": {
+			"timezone": "UTC",
+			"indices": "*",
+			"repository": "${opensearch_snapshot_repository.test.name}"
+		}
+	}
+  EOF
+}
+`
+
+func TestAccOpensearchSMPolicy_update(t *testing.T) {
+	provider := Provider()
+	diags := provider.Configure(context.Background(), &terraform.ResourceConfig{})
+	if diags.HasError() {
+		t.Skipf("err: %#v", diags)
+	}
+	var allowed bool = true
+
+	resource.Test(t, resource.TestCase{
+		PreCheck: func() {
+			testAccPreCheck(t)
+
+			if !allowed {
+				t.Skip("OpenSearch Snapshot Management only supported on OpenSearch >= 2.1")
+			}
+		},
+		Providers:    testAccOpendistroProviders,
+		CheckDestroy: testCheckOpensearchSMPolicyDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccOpensearchSMPolicyV7,
+				Check: resource.ComposeTestCheckFunc(
+					testCheckOpensearchSMPolicyExists("opensearch_sm_policy.test_policy"),
+					resource.TestCheckResourceAttr(
+						"opensearch_sm_policy.test_policy",
+						"policy_name",
+						"test_policy",
+					),
+				),
+			},
+			{
+				Config: testAccOpensearchSMPolicyV7Updated,
+				Check: resource.ComposeTestCheckFunc(
+					testCheckOpensearchSMPolicyExists("opensearch_sm_policy.test_policy"),
+					resource.TestCheckResourceAttr(
+						"opensearch_sm_policy.test_policy",
+						"policy_name",
+						"test_policy",
+					),
+				),
+			},
+		},
+	})
+}
+
+// Import test - ImportStateVerify is attempted but may fail due to computed fields
+// from the API. This is a fundamental design limitation of the current implementation.
+func TestAccOpensearchSMPolicy_importBasic(t *testing.T) {
+	provider := Provider()
+	diags := provider.Configure(context.Background(), &terraform.ResourceConfig{})
+	if diags.HasError() {
+		t.Skipf("err: %#v", diags)
+	}
+	resource.Test(t, resource.TestCase{
+		PreCheck:     func() { testAccPreCheck(t) },
+		Providers:    testAccOpendistroProviders,
+		CheckDestroy: testCheckOpensearchSMPolicyDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccOpensearchSMPolicyV7,
+			},
+			{
+				ResourceName:      "opensearch_sm_policy.test_policy",
+				ImportState:       true,
+				ImportStateVerify: true,
+			},
+		},
+	})
+}

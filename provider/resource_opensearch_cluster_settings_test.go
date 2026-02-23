@@ -3,6 +3,7 @@ package provider
 import (
 	"fmt"
 	"log"
+	"regexp"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
@@ -137,5 +138,100 @@ var testAccOpensearchClusterSettingsTypeList = `
 resource "opensearch_cluster_settings" "global" {
   reset_settings_on_delete                               = true
   cluster_routing_allocation_awareness_force_zone_values = ["zone1", "zone2", "zone3"]
+}
+`
+
+var testAccOpensearchClusterSettingsUpdated = `
+resource "opensearch_cluster_settings" "global" {
+  reset_settings_on_delete          = true
+  cluster_max_shards_per_node       = 20
+  cluster_routing_allocation_enable = "primaries"
+  action_auto_create_index          = "index10,index20,-index1*,+ind*,-.aws_cold_catalog*,+*"
+}
+`
+
+func TestAccOpensearchClusterSettings_update(t *testing.T) {
+	resource.Test(t, resource.TestCase{
+		PreCheck:     func() { testAccPreCheck(t) },
+		Providers:    testAccProviders,
+		CheckDestroy: checkOpensearchClusterSettingsDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccOpensearchClusterSettings,
+				Check: resource.ComposeTestCheckFunc(
+					testCheckOpensearchClusterSettingInState("opensearch_cluster_settings.global"),
+					testCheckOpensearchClusterSettingExists("action.auto_create_index"),
+				),
+			},
+			{
+				Config: testAccOpensearchClusterSettingsUpdated,
+				Check: resource.ComposeTestCheckFunc(
+					testCheckOpensearchClusterSettingInState("opensearch_cluster_settings.global"),
+					testCheckOpensearchClusterSettingExists("action.auto_create_index"),
+				),
+			},
+		},
+	})
+}
+
+func TestAccOpensearchClusterSettings_importBasic(t *testing.T) {
+	resource.Test(t, resource.TestCase{
+		PreCheck:     func() { testAccPreCheck(t) },
+		Providers:    testAccProviders,
+		CheckDestroy: checkOpensearchClusterSettingsDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccOpensearchClusterSettings,
+			},
+			{
+				ResourceName:            "opensearch_cluster_settings.global",
+				ImportState:             true,
+				ImportStateVerify:       true,
+				ImportStateVerifyIgnore: []string{"reset_settings_on_delete"},
+			},
+		},
+	})
+}
+
+func TestAccOpensearchClusterSettings_validationError_InvalidValue(t *testing.T) {
+	resource.Test(t, resource.TestCase{
+		PreCheck:     func() { testAccPreCheck(t) },
+		Providers:    testAccProviders,
+		CheckDestroy: checkOpensearchClusterSettingsDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config:      testAccClusterSettingsValidationErrorInvalidValue,
+				ExpectError: regexp.MustCompile(`(Failed to parse value|must be >=|illegal_argument_exception)`),
+			},
+		},
+	})
+}
+
+func TestAccOpensearchClusterSettings_validationError_ReadOnlySetting(t *testing.T) {
+	resource.Test(t, resource.TestCase{
+		PreCheck:     func() { testAccPreCheck(t) },
+		Providers:    testAccProviders,
+		CheckDestroy: checkOpensearchClusterSettingsDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config:      testAccClusterSettingsValidationErrorReadOnlySetting,
+				ExpectError: regexp.MustCompile(`(Unsupported argument|not expected here|Read-only)`),
+			},
+		},
+	})
+}
+
+var testAccClusterSettingsValidationErrorInvalidValue = `
+resource "opensearch_cluster_settings" "global" {
+  reset_settings_on_delete    = true
+  cluster_max_shards_per_node = -1
+}
+`
+
+var testAccClusterSettingsValidationErrorReadOnlySetting = `
+resource "opensearch_cluster_settings" "global" {
+  reset_settings_on_delete = true
+  # Attempting to set a read-only setting
+  cluster_name = "test_cluster"
 }
 `
