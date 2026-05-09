@@ -1,6 +1,6 @@
 module github.com/opensearch-project/terraform-provider-opensearch
 
-go 1.25.0
+go 1.26.3
 
 require (
 	github.com/aws/aws-sdk-go-v2/config v1.32.9
