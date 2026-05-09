@@ -22,10 +22,8 @@
 # OpenSearch version to test against (2 or 3)
 OS_VERSION ?= 2
 
-# Docker image tags based on version
+# Docker image tag based on version
 OSS_IMAGE := opensearchproject/opensearch:$(OS_VERSION)
-OS_IMAGE := opensearchproject/opensearch:$(OS_VERSION)
-OS_DASHBOARD_IMAGE := opensearchproject/opensearch-dashboards:$(OS_VERSION)
 OPENSEARCH_PREFIX := plugins.security
 OPENSEARCH_URL := http://admin:myStrongPassword123%40456@localhost:9200
 
@@ -134,6 +132,15 @@ tidy-check: ## Run go mod tidy and verify no changes (same as CI)
 
 .PHONY: infra-up
 infra-up: check-tools ## Start OpenSearch and Dashboards containers
+	@UNAME=$$(uname -s); \
+	if [ "$$UNAME" = "Linux" ]; then \
+		MAX_MAP=$$(sysctl -n vm.max_map_count 2>/dev/null || echo 0); \
+		if [ "$$MAX_MAP" -lt 262144 ]; then \
+			echo "Error: vm.max_map_count is $$MAX_MAP, but must be >= 262144 for OpenSearch."; \
+			echo "Run: sudo sysctl -w vm.max_map_count=262144"; \
+			exit 1; \
+		fi; \
+	fi
 	@echo "Starting OpenSearch $(OS_VERSION)..."
 	OSS_IMAGE=$(OSS_IMAGE) $(DOCKER_COMPOSE) up --detach
 	@echo "Containers started. Run 'make wait' to wait for OpenSearch to be ready."
@@ -173,16 +180,23 @@ test-unit: ## Run unit tests only (no acceptance tests)
 test-acc: check-tools ## Run acceptance tests (requires 'make infra-up' first)
 	@echo "Running acceptance tests against OpenSearch $(OS_VERSION)..."
 	export OPENSEARCH_URL=$(OPENSEARCH_URL) && \
+	export OPENSEARCH_PREFIX=$(OPENSEARCH_PREFIX) && \
 	export TF_LOG=$(TF_LOG) && \
 	TF_ACC=$(TF_ACC) $(GO) test ./... -v -parallel $(TEST_PARALLEL) -cover -short -timeout $(TEST_TIMEOUT)
 
 .PHONY: test-acc-os2
-test-acc-os2: ## Run acceptance tests against OpenSearch 2.x
-	$(MAKE) OS_VERSION=2 test-acc
+test-acc-os2: ## Run acceptance tests against OpenSearch 2.x (auto-manages containers)
+	$(MAKE) OS_VERSION=2 infra-up
+	$(MAKE) OS_VERSION=2 wait
+	$(MAKE) OS_VERSION=2 test-acc || (EXIT_CODE=$$?; $(MAKE) OS_VERSION=2 infra-down; exit $$EXIT_CODE)
+	$(MAKE) OS_VERSION=2 infra-down
 
 .PHONY: test-acc-os3
-test-acc-os3: ## Run acceptance tests against OpenSearch 3.x
-	$(MAKE) OS_VERSION=3 test-acc
+test-acc-os3: ## Run acceptance tests against OpenSearch 3.x (auto-manages containers)
+	$(MAKE) OS_VERSION=3 infra-up
+	$(MAKE) OS_VERSION=3 wait
+	$(MAKE) OS_VERSION=3 test-acc || (EXIT_CODE=$$?; $(MAKE) OS_VERSION=3 infra-down; exit $$EXIT_CODE)
+	$(MAKE) OS_VERSION=3 infra-down
 
 # ------------------------------------------------------------------------------
 # GoReleaser targets
