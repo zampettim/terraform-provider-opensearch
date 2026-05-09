@@ -77,7 +77,10 @@ func normalizeMonitorTriggers(triggers []interface{}) {
 
 func normalizeMonitorTriggerActions(actions []interface{}) {
 	for _, a := range actions {
-		action := a.(map[string]interface{})
+		action, ok := a.(map[string]interface{})
+		if !ok {
+			continue
+		}
 		delete(action, "id")
 	}
 }

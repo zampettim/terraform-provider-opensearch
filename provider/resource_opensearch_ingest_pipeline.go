@@ -15,6 +15,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"strings"
 
@@ -57,7 +58,7 @@ func resourceOpensearchIngestPipelineCreate(d *schema.ResourceData, meta interfa
 		return err
 	}
 	d.SetId(d.Get("name").(string))
-	return nil
+	return resourceOpensearchIngestPipelineRead(d, meta)
 }
 
 func resourceOpensearchIngestPipelineRead(d *schema.ResourceData, meta interface{}) error {
@@ -71,6 +72,11 @@ func resourceOpensearchIngestPipelineRead(d *schema.ResourceData, meta interface
 	}
 	result, err = getIngestPipeline(client, id)
 	if err != nil {
+		if isNotFound(err) {
+			log.Printf("[WARN] Ingest pipeline (%s) not found, removing from state", id)
+			d.SetId("")
+			return nil
+		}
 		return err
 	}
 

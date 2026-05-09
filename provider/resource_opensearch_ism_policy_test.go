@@ -113,11 +113,7 @@ func testCheckOpensearchISMPolicyDestroy(s *terraform.State) error {
 
 		meta := testAccOpendistroProvider.Meta()
 
-		var err error
-		if err != nil {
-			return err
-		}
-		_, err = resourceOpensearchGetISMPolicy(rs.Primary.ID, meta.(*ProviderConf))
+		_, err := resourceOpensearchGetISMPolicy(rs.Primary.ID, meta.(*ProviderConf))
 
 		if err != nil {
 			return nil // should be not found error

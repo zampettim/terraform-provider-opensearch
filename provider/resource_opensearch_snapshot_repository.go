@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"log"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/opensearch-project/opensearch-go/v4/opensearchapi"
@@ -46,7 +47,7 @@ func resourceOpensearchSnapshotRepositoryCreate(d *schema.ResourceData, meta int
 		return err
 	}
 	d.SetId(d.Get("name").(string))
-	return nil
+	return resourceOpensearchSnapshotRepositoryRead(d, meta)
 }
 
 func resourceOpensearchSnapshotRepositoryRead(d *schema.ResourceData, meta interface{}) error {
@@ -62,6 +63,11 @@ func resourceOpensearchSnapshotRepositoryRead(d *schema.ResourceData, meta inter
 	repositoryType, settings, err = getSnapshotRepository(client, id)
 
 	if err != nil {
+		if isNotFound(err) {
+			log.Printf("[WARN] Snapshot repository (%s) not found, removing from state", id)
+			d.SetId("")
+			return nil
+		}
 		return err
 	}
 

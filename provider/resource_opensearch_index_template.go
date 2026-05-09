@@ -48,7 +48,7 @@ func resourceOpensearchIndexTemplateCreate(d *schema.ResourceData, meta interfac
 		return err
 	}
 	d.SetId(d.Get("name").(string))
-	return nil
+	return resourceOpensearchIndexTemplateRead(d, meta)
 }
 
 func resourceOpensearchIndexTemplateRead(d *schema.ResourceData, meta interface{}) error {
