@@ -346,7 +346,7 @@ func resourceOpensearchPutClusterSettings(d *schema.ResourceData, meta interface
 		return err
 	}
 
-	_, err = client.Client.Cluster.PutSettings(context.TODO(), opensearchapi.ClusterPutSettingsReq{
+	_, err = client.Cluster.PutSettings(context.TODO(), opensearchapi.ClusterPutSettingsReq{
 		Body: bytes.NewReader(body),
 	})
 	if err != nil {
@@ -391,7 +391,7 @@ func resourceOpensearchClusterSettingsGet(meta interface{}) (map[string]interfac
 
 	// Request flat settings to match expected format (dot notation keys)
 	flatSettings := true
-	res, err := client.Client.Cluster.GetSettings(context.TODO(), &opensearchapi.ClusterGetSettingsReq{
+	res, err := client.Cluster.GetSettings(context.TODO(), &opensearchapi.ClusterGetSettingsReq{
 		Params: opensearchapi.ClusterGetSettingsParams{
 			FlatSettings: &flatSettings,
 		},
@@ -431,7 +431,7 @@ func clearAllSettings(meta interface{}) error {
 		}
 	  }`
 
-	_, err = client.Client.Cluster.PutSettings(context.TODO(), opensearchapi.ClusterPutSettingsReq{
+	_, err = client.Cluster.PutSettings(context.TODO(), opensearchapi.ClusterPutSettingsReq{
 		Body: strings.NewReader(body),
 	})
 	if err != nil {
@@ -444,7 +444,7 @@ func clearAllSettings(meta interface{}) error {
 func clusterSettingsFromResourceData(d *schema.ResourceData) map[string]interface{} {
 	settings := make(map[string]interface{})
 	for _, key := range dynamicClusterSettings {
-		schemaName := strings.Replace(key, ".", "_", -1)
+		schemaName := strings.ReplaceAll(key, ".", "_")
 		if raw, ok := d.GetOk(schemaName); ok {
 			if isTypeListSetting(key) {
 				if list, ok := raw.([]interface{}); ok {
@@ -465,7 +465,7 @@ func clusterResourceDataFromSettings(settings map[string]interface{}, d *schema.
 			continue
 		}
 
-		schemaName := strings.Replace(key, ".", "_", -1)
+		schemaName := strings.ReplaceAll(key, ".", "_")
 		if isTypeListSetting(key) {
 			if list, ok := value.([]interface{}); ok {
 				if err := d.Set(schemaName, list); err != nil {

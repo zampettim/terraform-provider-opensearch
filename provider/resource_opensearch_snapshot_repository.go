@@ -79,7 +79,7 @@ func resourceOpensearchSnapshotRepositoryRead(d *schema.ResourceData, meta inter
 }
 
 func getSnapshotRepository(client *OpenSearchClient, id string) (string, map[string]interface{}, error) {
-	res, err := client.Client.Snapshot.Repository.Get(context.TODO(), &opensearchapi.SnapshotRepositoryGetReq{
+	res, err := client.Snapshot.Repository.Get(context.TODO(), &opensearchapi.SnapshotRepositoryGetReq{
 		Repos: []string{id},
 	})
 	if err != nil {
@@ -130,7 +130,7 @@ func createSnapshotRepository(client *OpenSearchClient, name string, repositoryT
 		return err
 	}
 
-	_, err = client.Client.Snapshot.Repository.Create(context.TODO(), opensearchapi.SnapshotRepositoryCreateReq{
+	_, err = client.Snapshot.Repository.Create(context.TODO(), opensearchapi.SnapshotRepositoryCreateReq{
 		Repo: name,
 		Body: bytes.NewReader(bodyJSON),
 	})
@@ -145,7 +145,7 @@ func resourceOpensearchSnapshotRepositoryDelete(d *schema.ResourceData, meta int
 	if err != nil {
 		return err
 	}
-	_, err = client.Client.Snapshot.Repository.Delete(context.TODO(), opensearchapi.SnapshotRepositoryDeleteReq{
+	_, err = client.Snapshot.Repository.Delete(context.TODO(), opensearchapi.SnapshotRepositoryDeleteReq{
 		Repos: []string{id},
 	})
 

@@ -146,7 +146,7 @@ func resourceOpensearchIndexTemplateDelete(d *schema.ResourceData, meta interfac
 	if err != nil {
 		return err
 	}
-	_, err = client.Client.Template.Delete(context.TODO(), opensearchapi.TemplateDeleteReq{
+	_, err = client.Template.Delete(context.TODO(), opensearchapi.TemplateDeleteReq{
 		Template: id,
 	})
 
@@ -166,7 +166,7 @@ func resourceOpensearchPutIndexTemplate(d *schema.ResourceData, meta interface{}
 	if err != nil {
 		return err
 	}
-	_, err = client.Client.Template.Create(context.TODO(), opensearchapi.TemplateCreateReq{
+	_, err = client.Template.Create(context.TODO(), opensearchapi.TemplateCreateReq{
 		Template: name,
 		Body:     strings.NewReader(body),
 	})

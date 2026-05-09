@@ -310,7 +310,7 @@ func resourceOpensearchPutOpenDistroRole(d *schema.ResourceData, m interface{}) 
 
 	roleJSON, err := json.Marshal(rolesDefinition)
 	if err != nil {
-		return response, fmt.Errorf("Body Error : %s", roleJSON)
+		return response, fmt.Errorf("body error: %s", roleJSON)
 	}
 
 	roleName := d.Get("role_name").(string)

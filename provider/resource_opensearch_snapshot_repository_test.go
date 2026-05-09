@@ -67,7 +67,7 @@ func testCheckOpensearchSnapshotRepositoryExists(name string) resource.TestCheck
 		if err != nil {
 			return err
 		}
-		_, err = client.Client.Snapshot.Repository.Get(context.TODO(), &opensearchapi.SnapshotRepositoryGetReq{
+		_, err = client.Snapshot.Repository.Get(context.TODO(), &opensearchapi.SnapshotRepositoryGetReq{
 			Repos: []string{rs.Primary.ID},
 		})
 
@@ -92,7 +92,7 @@ func testCheckOpensearchSnapshotRepositoryDestroy(s *terraform.State) error {
 		if err != nil {
 			return err
 		}
-		_, err = client.Client.Snapshot.Repository.Get(context.TODO(), &opensearchapi.SnapshotRepositoryGetReq{
+		_, err = client.Snapshot.Repository.Get(context.TODO(), &opensearchapi.SnapshotRepositoryGetReq{
 			Repos: []string{rs.Primary.ID},
 		})
 

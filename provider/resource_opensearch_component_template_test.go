@@ -16,7 +16,7 @@ func TestAccOpensearchComponentTemplate(t *testing.T) {
 	if diags.HasError() {
 		t.Skipf("err: %#v", diags)
 	}
-	var allowed bool = true
+	var allowed = true
 	resource.Test(t, resource.TestCase{
 		PreCheck: func() {
 			testAccPreCheck(t)
@@ -49,7 +49,7 @@ func TestAccOpensearchComponentTemplate_importBasic(t *testing.T) {
 	if diags.HasError() {
 		t.Skipf("err: %#v", diags)
 	}
-	var allowed bool = true
+	var allowed = true
 	resource.Test(t, resource.TestCase{
 		PreCheck: func() {
 			testAccPreCheck(t)
@@ -89,7 +89,7 @@ func testCheckOpensearchComponentTemplateExists(name string) resource.TestCheckF
 			return err
 		}
 
-		_, err = client.Client.ComponentTemplate.Get(context.TODO(), &opensearchapi.ComponentTemplateGetReq{
+		_, err = client.ComponentTemplate.Get(context.TODO(), &opensearchapi.ComponentTemplateGetReq{
 			ComponentTemplate: rs.Primary.ID,
 		})
 
@@ -114,7 +114,7 @@ func testCheckOpensearchComponentTemplateDestroy(s *terraform.State) error {
 			return err
 		}
 
-		_, err = client.Client.ComponentTemplate.Get(context.TODO(), &opensearchapi.ComponentTemplateGetReq{
+		_, err = client.ComponentTemplate.Get(context.TODO(), &opensearchapi.ComponentTemplateGetReq{
 			ComponentTemplate: rs.Primary.ID,
 		})
 

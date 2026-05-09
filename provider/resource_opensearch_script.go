@@ -125,7 +125,7 @@ func resourceOpensearchScriptDelete(d *schema.ResourceData, m interface{}) error
 	if err != nil {
 		return err
 	}
-	_, err = client.Client.Script.Delete(context.TODO(), opensearchapi.ScriptDeleteReq{
+	_, err = client.Script.Delete(context.TODO(), opensearchapi.ScriptDeleteReq{
 		ScriptID: d.Id(),
 	})
 
@@ -137,7 +137,7 @@ func resourceOpensearchGetScript(scriptID string, m interface{}) (ScriptBody, er
 	if err != nil {
 		return ScriptBody{}, err
 	}
-	res, err := client.Client.Script.Get(context.TODO(), opensearchapi.ScriptGetReq{
+	res, err := client.Script.Get(context.TODO(), opensearchapi.ScriptGetReq{
 		ScriptID: scriptID,
 	})
 	if err != nil {
@@ -164,7 +164,7 @@ func resourceOpensearchPutScript(d *schema.ResourceData, m interface{}) (string,
 	if err != nil {
 		return "", err
 	}
-	_, err = client.Client.Script.Put(context.TODO(), opensearchapi.ScriptPutReq{
+	_, err = client.Script.Put(context.TODO(), opensearchapi.ScriptPutReq{
 		ScriptID: scriptID,
 		Body:     strings.NewReader(scriptBody),
 	})

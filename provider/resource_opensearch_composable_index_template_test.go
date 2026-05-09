@@ -17,7 +17,7 @@ func TestAccOpensearchComposableIndexTemplate(t *testing.T) {
 		t.Skipf("err: %#v", diags)
 	}
 
-	var allowed bool = true
+	var allowed = true
 	resource.Test(t, resource.TestCase{
 		PreCheck: func() {
 			testAccPreCheck(t)
@@ -51,7 +51,7 @@ func TestAccOpensearchComposableIndexTemplate_importBasic(t *testing.T) {
 		t.Skipf("err: %#v", diags)
 	}
 
-	var allowed bool = true
+	var allowed = true
 	resource.Test(t, resource.TestCase{
 		PreCheck: func() {
 			testAccPreCheck(t)
@@ -91,7 +91,7 @@ func testCheckOpensearchComposableIndexTemplateExists(name string) resource.Test
 			return err
 		}
 
-		_, err = client.Client.IndexTemplate.Get(context.TODO(), &opensearchapi.IndexTemplateGetReq{
+		_, err = client.IndexTemplate.Get(context.TODO(), &opensearchapi.IndexTemplateGetReq{
 			IndexTemplates: []string{rs.Primary.ID},
 		})
 
@@ -116,7 +116,7 @@ func testCheckOpensearchComposableIndexTemplateDestroy(s *terraform.State) error
 			return err
 		}
 
-		_, err = client.Client.IndexTemplate.Get(context.TODO(), &opensearchapi.IndexTemplateGetReq{
+		_, err = client.IndexTemplate.Get(context.TODO(), &opensearchapi.IndexTemplateGetReq{
 			IndexTemplates: []string{rs.Primary.ID},
 		})
 

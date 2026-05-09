@@ -166,7 +166,7 @@ func testCheckOpensearchSecurityAuditConfigConnects(name string) resource.TestCh
 			}
 
 			// Use the new client's Cluster.Health method
-			_, err = client.Client.Cluster.Health(context.TODO(), nil)
+			_, err = client.Cluster.Health(context.TODO(), nil)
 			if err != nil {
 				return fmt.Errorf("failed to check cluster health: %w", err)
 			}

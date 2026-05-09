@@ -38,7 +38,7 @@ func resourceOpensearchDashboardObject() *schema.Resource {
 				if err != nil {
 					return false
 				}
-				return !(dashboardObjectOld["_id"] == dashboardObjectNew["_id"])
+				return dashboardObjectOld["_id"] != dashboardObjectNew["_id"]
 			}),
 		Schema: map[string]*schema.Schema{
 			"body": {
@@ -111,16 +111,16 @@ func resourceOpensearchDashboardObjectCreate(d *schema.ResourceData, meta interf
 	}
 	client, err := getOpenSearchClient(meta.(*ProviderConf))
 	if err != nil {
-		return fmt.Errorf("Could not read client: %+v", err)
+		return fmt.Errorf("could not read client: %+v", err)
 	}
 
 	// make OpenSearch API calls
 	if err = createDashboardIndexIfNotExists(client, state.index); err != nil {
-		return fmt.Errorf("Failed to create new Dashboard index: %+v", err)
+		return fmt.Errorf("failed to create new Dashboard index: %+v", err)
 	}
 	resp, err := state.putDashboardObject(client)
 	if err != nil {
-		return fmt.Errorf("Failed to put Dashboard object: %+v", err)
+		return fmt.Errorf("failed to put Dashboard object: %+v", err)
 	}
 
 	// set computed value
@@ -147,7 +147,7 @@ func resourceOpensearchDashboardObjectRead(d *schema.ResourceData, meta interfac
 			d.SetId("")
 			return nil
 		}
-		return fmt.Errorf("Could not read state from OpenSearch: %+v", err)
+		return fmt.Errorf("could not read state from OpenSearch: %+v", err)
 	}
 
 	// build json string from response that represents body configuration
@@ -157,7 +157,7 @@ func resourceOpensearchDashboardObjectRead(d *schema.ResourceData, meta interfac
 
 	var source map[string]interface{}
 	if err := json.Unmarshal(result.Source, &source); err != nil {
-		return fmt.Errorf("Failed to unmarshal source: %+v", err)
+		return fmt.Errorf("failed to unmarshal source: %+v", err)
 	}
 
 	var originalKeys []string
@@ -167,19 +167,20 @@ func resourceOpensearchDashboardObjectRead(d *schema.ResourceData, meta interfac
 
 	stateObject := []map[string]interface{}{make(map[string]interface{})}
 	for _, k := range originalKeys {
-		if k == "_id" {
+		switch k {
+		case "_id":
 			// _id is returned separately in the response, not in _source
 			stateObject[0][k] = result.Id
-		} else if k == "_source" {
+		case "_source":
 			// The entire source is the _source content
 			stateObject[0][k] = source
-		} else {
+		default:
 			stateObject[0][k] = source[k]
 		}
 	}
 	bodyBytes, err := json.Marshal(stateObject)
 	if err != nil {
-		return fmt.Errorf("Failed marshalling resource data: %+v", err)
+		return fmt.Errorf("failed marshalling resource data: %+v", err)
 	}
 
 	// update terraform state based on fetched data. Fields other than 'body' do
@@ -204,7 +205,7 @@ func resourceOpensearchDashboardObjectUpdate(d *schema.ResourceData, meta interf
 	// update data in OpenSearch via put request
 	resp, err := state.putDashboardObject(client)
 	if err != nil {
-		return fmt.Errorf("Dashboard object update failed: %+v", err)
+		return fmt.Errorf("dashboard object update failed: %+v", err)
 	}
 
 	// update computed values
@@ -247,7 +248,7 @@ func createDashboardIndexIfNotExists(client *OpenSearchClient, index string) err
 	existsReq := opensearchapi.IndicesExistsReq{
 		Indices: []string{index},
 	}
-	existsResp, err := client.Client.Indices.Exists(context.TODO(), existsReq)
+	existsResp, err := client.Indices.Exists(context.TODO(), existsReq)
 	if err != nil {
 		// The new SDK returns an error for 404 (index not found)
 		// If it's a 404, we should proceed to create the index
@@ -265,7 +266,7 @@ func createDashboardIndexIfNotExists(client *OpenSearchClient, index string) err
 		Index: index,
 		Body:  bytes.NewReader([]byte(`{"mappings":{}}`)),
 	}
-	createResp, err := client.Client.Indices.Create(context.TODO(), createReq)
+	createResp, err := client.Indices.Create(context.TODO(), createReq)
 	if err != nil {
 		return fmt.Errorf("failed to create OpenSearch index: %+v", err)
 	}
@@ -290,7 +291,7 @@ type dashboardObjectState struct {
 func readDashboardObjectState(d *schema.ResourceData) (*dashboardObjectState, error) {
 	dashboardObject, err := readBodyInterface(d.Get("body"))
 	if err != nil {
-		return nil, fmt.Errorf("Could not read body interface: %+v", err)
+		return nil, fmt.Errorf("could not read body interface: %+v", err)
 	}
 	// Calculate index if tenantName is given
 	indexName := d.Get("index").(string)
@@ -316,20 +317,20 @@ func readDashboardObjectState(d *schema.ResourceData) (*dashboardObjectState, er
 func readBodyInterface(i interface{}) (map[string]interface{}, error) {
 	bodyString, ok := i.(string)
 	if !ok {
-		return nil, fmt.Errorf("Cannot convert input to string.")
+		return nil, fmt.Errorf("cannot convert input to string")
 	}
 
 	var body []interface{}
 	if err := json.Unmarshal([]byte(bodyString), &body); err != nil {
-		return nil, fmt.Errorf("Could not unmarshal body string: %+v", err)
+		return nil, fmt.Errorf("could not unmarshal body string: %+v", err)
 	}
 	if len(body) == 0 {
-		return nil, fmt.Errorf("Body has no elements as JSON array.")
+		return nil, fmt.Errorf("body has no elements as JSON array")
 	}
 
 	dashboardObject, ok := body[0].(map[string]interface{})
 	if !ok {
-		return nil, fmt.Errorf("Body has unexpected format.")
+		return nil, fmt.Errorf("body has unexpected format")
 	}
 
 	return dashboardObject, nil

@@ -202,7 +202,7 @@ func resourceOpensearchGetOpenDistroUser(userID string, m interface{}) (UserBody
 	var userDefinition map[string]UserBody
 
 	if err := json.Unmarshal(body, &userDefinition); err != nil {
-		return *user, fmt.Errorf("Error unmarshalling user body: %+v: %+v", err, body)
+		return *user, fmt.Errorf("error unmarshalling user body: %+v: %+v", err, body)
 	}
 
 	*user = userDefinition[userID]
@@ -228,7 +228,7 @@ func resourceOpensearchPutOpenDistroUser(d *schema.ResourceData, m interface{}) 
 
 	userJSON, err := json.Marshal(userDefinition)
 	if err != nil {
-		return response, fmt.Errorf("Body Error : %s", userJSON)
+		return response, fmt.Errorf("body error: %s", userJSON)
 	}
 
 	username := d.Get("username").(string)
@@ -288,7 +288,7 @@ func resourceOpensearchPutOpenDistroUser(d *schema.ResourceData, m interface{}) 
 	}
 
 	if err := json.Unmarshal(body, response); err != nil {
-		return response, fmt.Errorf("Error unmarshalling user body: %+v: %+v", err, body)
+		return response, fmt.Errorf("error unmarshalling user body: %+v: %+v", err, body)
 	}
 
 	return response, nil

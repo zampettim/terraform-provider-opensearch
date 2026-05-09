@@ -319,7 +319,7 @@ func resourceOpensearchGetAuditConfig(m interface{}) (getAuditConfigResponse, er
 	}
 
 	if err := json.Unmarshal(body, &audit); err != nil {
-		return *audit, fmt.Errorf("Error unmarshalling user body: %+v: %+v", err, body)
+		return *audit, fmt.Errorf("error unmarshalling user body: %+v: %+v", err, body)
 	}
 	log.Printf("[INFO] get audit config response: %+v", *audit)
 	return *audit, nil

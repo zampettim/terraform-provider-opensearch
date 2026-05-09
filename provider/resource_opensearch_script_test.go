@@ -83,7 +83,7 @@ func testCheckOpensearchScriptExists(name string) resource.TestCheckFunc {
 		if err != nil {
 			return err
 		}
-		_, err = client.Client.Script.Get(context.TODO(), opensearchapi.ScriptGetReq{
+		_, err = client.Script.Get(context.TODO(), opensearchapi.ScriptGetReq{
 			ScriptID: rs.Primary.ID,
 		})
 
@@ -108,7 +108,7 @@ func testCheckOpensearchScriptDestroy(s *terraform.State) error {
 		if err != nil {
 			return err
 		}
-		_, err = client.Client.Script.Get(context.TODO(), opensearchapi.ScriptGetReq{
+		_, err = client.Script.Get(context.TODO(), opensearchapi.ScriptGetReq{
 			ScriptID: rs.Primary.ID,
 		})
 

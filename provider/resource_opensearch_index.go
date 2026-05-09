@@ -559,7 +559,7 @@ func resourceOpensearchIndexCreate(d *schema.ResourceData, meta interface{}) err
 		Body:  bytes.NewReader(bodyBytes),
 	}
 
-	resp, err := client.Client.Indices.Create(ctx, createReq)
+	resp, err := client.Indices.Create(ctx, createReq)
 	if err != nil {
 		return fmt.Errorf("failed to create index: %v", err)
 	}
@@ -578,7 +578,7 @@ func resourceOpensearchIndexCreate(d *schema.ResourceData, meta interface{}) err
 func settingsFromIndexResourceData(d *schema.ResourceData) map[string]interface{} {
 	settings := make(map[string]interface{})
 	for _, key := range settingsKeys {
-		schemaName := strings.Replace(key, ".", "_", -1)
+		schemaName := strings.ReplaceAll(key, ".", "_")
 		if raw, ok := d.GetOk(schemaName); ok {
 			log.Printf("[INFO] settingsFromIndexResourceData: key:%+v schemaName:%+v value:%+v, %+v", key, schemaName, raw, settings)
 			settings[key] = raw
@@ -601,7 +601,7 @@ func indexResourceDataFromSettings(settings map[string]interface{}, d *schema.Re
 			value = rawPrefixedValue
 		}
 
-		schemaName := strings.Replace(key, ".", "_", -1)
+		schemaName := strings.ReplaceAll(key, ".", "_")
 
 		if configSchema[schemaName].Type == schema.TypeBool {
 			str := value.(string)
@@ -631,7 +631,7 @@ func resourceOpensearchIndexDelete(d *schema.ResourceData, meta interface{}) err
 	// check to see if there are documents in the index
 	allowed := allowIndexDestroy(name, d, meta)
 	if !allowed {
-		return fmt.Errorf("There are documents in the index (or the index could not be , set force_destroy to true to allow destroying.")
+		return fmt.Errorf("there are documents in the index (or the index could not be determined); set force_destroy to true to allow destroying")
 	}
 
 	client, err := getOpenSearchClient(meta.(*ProviderConf))
@@ -642,7 +642,7 @@ func resourceOpensearchIndexDelete(d *schema.ResourceData, meta interface{}) err
 	deleteReq := opensearchapi.IndicesDeleteReq{
 		Indices: []string{name},
 	}
-	_, err = client.Client.Indices.Delete(context.Background(), deleteReq)
+	_, err = client.Indices.Delete(context.Background(), deleteReq)
 
 	return err
 }
@@ -658,7 +658,7 @@ func allowIndexDestroy(indexName string, d *schema.ResourceData, meta interface{
 	countReq := opensearchapi.IndicesCountReq{
 		Indices: []string{indexName},
 	}
-	countResp, err := client.Client.Indices.Count(context.Background(), &countReq)
+	countResp, err := client.Indices.Count(context.Background(), &countReq)
 
 	if err != nil {
 		log.Printf("[INFO] allowIndexDestroy: %+v", err)
@@ -674,7 +674,7 @@ func allowIndexDestroy(indexName string, d *schema.ResourceData, meta interface{
 func resourceOpensearchIndexUpdate(d *schema.ResourceData, meta interface{}) error {
 	settings := make(map[string]interface{})
 	for _, key := range settingsKeys {
-		schemaName := strings.Replace(key, ".", "_", -1)
+		schemaName := strings.ReplaceAll(key, ".", "_")
 		if _, ok := d.GetOk(schemaName); ok {
 			if d.HasChange(schemaName) {
 				settings[key] = d.Get(schemaName)
@@ -731,7 +731,7 @@ func resourceOpensearchIndexUpdate(d *schema.ResourceData, meta interface{}) err
 		Indices: []string{name},
 		Body:    bytes.NewReader(bodyBytes),
 	}
-	_, err = client.Client.Indices.Settings.Put(context.Background(), settingsReq)
+	_, err = client.Indices.Settings.Put(context.Background(), settingsReq)
 
 	if err == nil {
 		return resourceOpensearchIndexRead(d, meta)

@@ -324,7 +324,7 @@ func getOpenSearchClient(conf *ProviderConf) (*OpenSearchClient, error) {
 		defer cancel()
 
 		// Use the new client's Info method to get version
-		info, err := client.Client.Info(ctx, nil)
+		info, err := client.Info(ctx, nil)
 		if err != nil {
 			// Check for specific error types
 			if os.IsTimeout(err) {

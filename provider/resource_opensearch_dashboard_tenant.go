@@ -213,7 +213,7 @@ func resourceOpensearchPutOpenDistroDashboardTenant(d *schema.ResourceData, m in
 
 	tenantJSON, err := json.Marshal(tenantsDefinition)
 	if err != nil {
-		return response, fmt.Errorf("Body Error : %s", tenantJSON)
+		return response, fmt.Errorf("body error: %s", tenantJSON)
 	}
 
 	path := fmt.Sprintf("/_plugins/_security/api/tenants/%s", d.Get("tenant_name").(string))

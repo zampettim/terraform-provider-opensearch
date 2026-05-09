@@ -16,7 +16,7 @@ func TestAccOpensearchIndexTemplate(t *testing.T) {
 	if diags.HasError() {
 		t.Skipf("err: %#v", diags)
 	}
-	var config string = testAccOpensearchIndexTemplateV7
+	var config = testAccOpensearchIndexTemplateV7
 	resource.Test(t, resource.TestCase{
 		PreCheck: func() {
 			testAccPreCheck(t)
@@ -46,7 +46,7 @@ func TestAccOpensearchIndexTemplate_importBasic(t *testing.T) {
 	if diags.HasError() {
 		t.Skipf("err: %#v", diags)
 	}
-	var config string = testAccOpensearchIndexTemplateV7
+	var config = testAccOpensearchIndexTemplateV7
 
 	resource.Test(t, resource.TestCase{
 
@@ -85,7 +85,7 @@ func testCheckOpensearchIndexTemplateExists(name string) resource.TestCheckFunc 
 		if err != nil {
 			return err
 		}
-		_, err = client.Client.Template.Get(context.TODO(), &opensearchapi.TemplateGetReq{
+		_, err = client.Template.Get(context.TODO(), &opensearchapi.TemplateGetReq{
 			Templates: []string{rs.Primary.ID},
 		})
 
@@ -110,7 +110,7 @@ func testCheckOpensearchIndexTemplateDestroy(s *terraform.State) error {
 		if err != nil {
 			return err
 		}
-		_, err = client.Client.Template.Get(context.TODO(), &opensearchapi.TemplateGetReq{
+		_, err = client.Template.Get(context.TODO(), &opensearchapi.TemplateGetReq{
 			Templates: []string{rs.Primary.ID},
 		})
 

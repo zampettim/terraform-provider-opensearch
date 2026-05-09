@@ -77,7 +77,7 @@ func resourceOpensearchComponentTemplateRead(d *schema.ResourceData, meta interf
 }
 
 func getComponentTemplate(client *OpenSearchClient, id string) (string, error) {
-	res, err := client.Client.ComponentTemplate.Get(context.TODO(), &opensearchapi.ComponentTemplateGetReq{
+	res, err := client.ComponentTemplate.Get(context.TODO(), &opensearchapi.ComponentTemplateGetReq{
 		ComponentTemplate: id,
 	})
 	if err != nil {
@@ -111,7 +111,7 @@ func resourceOpensearchComponentTemplateDelete(d *schema.ResourceData, meta inte
 		return err
 	}
 
-	_, err = client.Client.ComponentTemplate.Delete(context.TODO(), opensearchapi.ComponentTemplateDeleteReq{
+	_, err = client.ComponentTemplate.Delete(context.TODO(), opensearchapi.ComponentTemplateDeleteReq{
 		ComponentTemplate: id,
 	})
 
@@ -132,7 +132,7 @@ func resourceOpensearchPutComponentTemplate(d *schema.ResourceData, meta interfa
 		return err
 	}
 
-	_, err = client.Client.ComponentTemplate.Create(context.TODO(), opensearchapi.ComponentTemplateCreateReq{
+	_, err = client.ComponentTemplate.Create(context.TODO(), opensearchapi.ComponentTemplateCreateReq{
 		ComponentTemplate: name,
 		Body:              strings.NewReader(body),
 	})

@@ -69,7 +69,7 @@ func resourceOpensearchDataStreamDelete(d *schema.ResourceData, meta interface{}
 		return err
 	}
 
-	_, err = client.Client.DataStream.Delete(context.TODO(), opensearchapi.DataStreamDeleteReq{
+	_, err = client.DataStream.Delete(context.TODO(), opensearchapi.DataStreamDeleteReq{
 		DataStream: id,
 	})
 
@@ -89,7 +89,7 @@ func resourceOpensearchPutDataStream(d *schema.ResourceData, meta interface{}) e
 		return err
 	}
 
-	_, err = client.Client.DataStream.Create(context.TODO(), opensearchapi.DataStreamCreateReq{
+	_, err = client.DataStream.Create(context.TODO(), opensearchapi.DataStreamCreateReq{
 		DataStream: name,
 	})
 
@@ -97,7 +97,7 @@ func resourceOpensearchPutDataStream(d *schema.ResourceData, meta interface{}) e
 }
 
 func getDataStream(client *OpenSearchClient, id string) error {
-	_, err := client.Client.DataStream.Get(context.TODO(), &opensearchapi.DataStreamGetReq{
+	_, err := client.DataStream.Get(context.TODO(), &opensearchapi.DataStreamGetReq{
 		DataStreams: []string{id},
 	})
 	return err

@@ -76,7 +76,7 @@ func resourceOpensearchComposableIndexTemplateRead(d *schema.ResourceData, meta 
 }
 
 func getIndexTemplate(client *OpenSearchClient, id string) (string, error) {
-	res, err := client.Client.IndexTemplate.Get(context.TODO(), &opensearchapi.IndexTemplateGetReq{
+	res, err := client.IndexTemplate.Get(context.TODO(), &opensearchapi.IndexTemplateGetReq{
 		IndexTemplates: []string{id},
 	})
 	log.Printf("[INFO] Index template %+v %+v", res, err)
@@ -166,7 +166,7 @@ func resourceOpensearchComposableIndexTemplateDelete(d *schema.ResourceData, met
 		return err
 	}
 
-	_, err = client.Client.IndexTemplate.Delete(context.TODO(), opensearchapi.IndexTemplateDeleteReq{
+	_, err = client.IndexTemplate.Delete(context.TODO(), opensearchapi.IndexTemplateDeleteReq{
 		IndexTemplate: id,
 	})
 
@@ -187,7 +187,7 @@ func resourceOpensearchPutComposableIndexTemplate(d *schema.ResourceData, meta i
 		return err
 	}
 
-	_, err = client.Client.IndexTemplate.Create(context.TODO(), opensearchapi.IndexTemplateCreateReq{
+	_, err = client.IndexTemplate.Create(context.TODO(), opensearchapi.IndexTemplateCreateReq{
 		IndexTemplate: name,
 		Body:          strings.NewReader(body),
 	})
