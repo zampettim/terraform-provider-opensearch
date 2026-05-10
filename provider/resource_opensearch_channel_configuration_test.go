@@ -169,7 +169,7 @@ resource "opensearch_channel_configuration" "chime_channel_configuration" {
     "config_type": "chime",
     "is_enabled": true,
     "chime": {
-      "url": "https://www.example.com"
+      "url": "https://hooks.chime.aws/incomingwebhooks/XXXXXXXXXXXXXXXXXXXXXXXX?token=XXXXXXXXXXXXXXXXXXXXXXXX"
     }
   }
 }
