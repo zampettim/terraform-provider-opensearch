@@ -199,6 +199,24 @@ test-acc-os3: ## Run acceptance tests against OpenSearch 3.x (auto-manages conta
 	$(MAKE) OS_VERSION=3 infra-down
 
 # ------------------------------------------------------------------------------
+# Build targets
+# ------------------------------------------------------------------------------
+
+BINARY_NAME := terraform-provider-opensearch
+VERSION ?= local-dev
+COMMIT := $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+
+.PHONY: build
+build: ## Build the provider binary locally (same flags as CI)
+	@echo "Building $(BINARY_NAME) version=$(VERSION) commit=$(COMMIT)..."
+	CGO_ENABLED=0 $(GO) build -trimpath -ldflags="-s -w -X main.version=$(VERSION) -X main.commit=$(COMMIT)" -o $(BINARY_NAME)
+
+.PHONY: build-snapshot
+build-snapshot: check-goreleaser-tool ## Build release binaries via GoReleaser snapshot (no signing)
+	@echo "Building release snapshot..."
+	goreleaser build --snapshot --clean
+
+# ------------------------------------------------------------------------------
 # GoReleaser targets
 # ------------------------------------------------------------------------------
 
