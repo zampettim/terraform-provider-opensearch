@@ -114,9 +114,106 @@ Examples of resources can be found in the examples directory.
 
 ### Running tests locally
 
-The provider supports both OpenSearch 2.x and 3.x. You can test against either version by setting the `OSS_IMAGE` environment variable.
+The provider uses a `Makefile` to replicate the CI workflow. The easiest way to run tests locally is with the make targets described below.
 
-#### Testing against OpenSearch 2.x
+#### Quick start (OpenSearch 2.x)
+
+```sh
+make test-acc-os2
+```
+
+This single command:
+1. Starts an OpenSearch 2.x container with Docker Compose
+2. Waits for the cluster to be healthy
+3. Runs the acceptance test suite
+4. Stops and removes the container
+
+#### Test against OpenSearch 3.x
+
+```sh
+make test-acc-os3
+```
+
+#### Manual container management
+
+If you want to manage the container lifecycle yourself:
+
+```sh
+make infra-up   # Start OpenSearch
+make wait       # Wait for OpenSearch to be ready
+make test-acc   # Run acceptance tests
+make infra-down # Stop OpenSearch
+```
+
+The `OPENSEARCH_URL`, `OPENSEARCH_PREFIX`, `TF_LOG`, and `TF_ACC` variables are set automatically by the Makefile.
+
+#### Linux prerequisite
+
+On Linux, OpenSearch requires `vm.max_map_count >= 262144`. The `make infra-up` target checks this and fails with instructions if it is not set. You can set it manually with:
+
+```sh
+sudo sysctl -w vm.max_map_count=262144
+```
+
+macOS Docker Desktop handles this automatically.
+
+#### Run a specific test
+
+After running `make infra-up && make wait`, run a specific acceptance test with:
+
+```sh
+cd provider/
+export OPENSEARCH_URL=http://admin:myStrongPassword123%40456@localhost:9200
+TF_ACC=1 go test -run TestAccOpensearchOpenDistroDashboardTenant -v -cover -short
+```
+
+#### Unit tests only
+
+To run unit tests without starting a container:
+
+```sh
+make test-unit
+```
+
+#### Fix lint errors
+
+The CI lint check is reproduced by:
+
+```sh
+make lint
+```
+
+This runs `golangci-lint` and checks that all Go files are formatted. To auto-format Terraform files, run:
+
+```sh
+make fmt
+```
+
+For a quick pre-commit check of lint, module tidiness, and Terraform formatting, run:
+
+```sh
+make check
+```
+
+#### Full CI simulation
+
+To run the exact same checks as CI (lint, tidy check, format check, and acceptance tests) for OpenSearch 2.x:
+
+```sh
+make ci-test-os2
+```
+
+For OpenSearch 3.x:
+
+```sh
+make ci-test-os3
+```
+
+#### Advanced / fallback manual testing
+
+If you prefer not to use the Makefile, you can run the same steps manually.
+
+**Testing against OpenSearch 2.x:**
 
 ```sh
 export OSS_IMAGE="opensearchproject/opensearch:2"
@@ -129,7 +226,7 @@ export TF_LOG=INFO
 TF_ACC=1 go test ./... -v -parallel 20 -cover -short
 ```
 
-#### Testing against OpenSearch 3.x
+**Testing against OpenSearch 3.x:**
 
 ```sh
 export OSS_IMAGE="opensearchproject/opensearch:3"
@@ -140,20 +237,7 @@ export TF_LOG=INFO
 TF_ACC=1 go test ./... -v -parallel 20 -cover -short
 ```
 
-Note:  Starting from version `2.12.0`, the `admin` user password is determined by the `OPENSEARCH_INITIAL_ADMIN_PASSWORD` environment variable. If testing against a cluster with version `2.12.0` or later and have set `OPENSEARCH_INITIAL_ADMIN_PASSWORD=myStrongPassword123@456`, please update the URL as follows: `export OPENSEARCH_URL=http://admin:myStrongPassword123%40456@localhost:9200`
-
-#### To Run Specific Test
-
-```sh
-cd provider/
-TF_ACC=2 go test -run TestAccOpensearchOpenDistroDashboardTenant  -v -cover -short
-```
-
-#### Fix the go-lint errors
-
-```sh
-golangci-lint run --out-format=github-actions 
-```
+Note: Starting from version `2.12.0`, the `admin` user password is determined by the `OPENSEARCH_INITIAL_ADMIN_PASSWORD` environment variable. If testing against a cluster with version `2.12.0` or later and have set `OPENSEARCH_INITIAL_ADMIN_PASSWORD=myStrongPassword123@456`, please update the URL as follows: `export OPENSEARCH_URL=http://admin:myStrongPassword123%40456@localhost:9200`
 
 ### Debugging this provider
 

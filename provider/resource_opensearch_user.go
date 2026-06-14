@@ -1,6 +1,7 @@
 package provider
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -19,20 +20,34 @@ var openDistroUserSchema = map[string]*schema.Schema{
 		Required:    true,
 	},
 	"password": {
-		Description:   "The plain text password for the user, cannot be specified with `password_hash`. Some implementations may enforce a password policy. Invalid passwords may cause a non-descriptive HTTP 400 Bad Request error. For AWS OpenSearch domains \"password must be at least 8 characters long and contain at least one uppercase letter, one lowercase letter, one digit, and one special character\".",
+		Description:   "The plain text password for the user, cannot be specified with `password_hash` or `password_wo`. Some implementations may enforce a password policy. Invalid passwords may cause a non-descriptive HTTP 400 Bad Request error. For AWS OpenSearch domains \"password must be at least 8 characters long and contain at least one uppercase letter, one lowercase letter, one digit, and one special character\".",
 		Type:          schema.TypeString,
 		Optional:      true,
 		Sensitive:     true,
 		StateFunc:     hashSum,
-		ConflictsWith: []string{"password_hash"},
+		ConflictsWith: []string{"password_hash", "password_wo"},
 	},
 	"password_hash": {
-		Description:   "The pre-hashed password for the user, cannot be specified with `password`.",
+		Description:   "The pre-hashed password for the user, cannot be specified with `password` or `password_wo`.",
 		Type:          schema.TypeString,
 		Optional:      true,
 		Sensitive:     true,
 		StateFunc:     hashSum,
-		ConflictsWith: []string{"password"},
+		ConflictsWith: []string{"password", "password_wo"},
+	},
+	"password_wo": {
+		Description:   "The plain text password for the user as a write-only argument. This accepts ephemeral values and is not stored in Terraform plan or state. Cannot be specified with `password` or `password_hash`. Requires Terraform 1.11 or later.",
+		Type:          schema.TypeString,
+		Optional:      true,
+		Sensitive:     true,
+		WriteOnly:     true,
+		ConflictsWith: []string{"password", "password_hash"},
+	},
+	"password_wo_version": {
+		Description: "An arbitrary version number that, when changed, indicates the `password_wo` value should be re-sent to OpenSearch. Use this to force password rotation when `password_wo` itself has not changed.",
+		Type:        schema.TypeInt,
+		Optional:    true,
+		Default:     0,
 	},
 	"backend_roles": {
 		Description: "A list of backend roles.",
@@ -55,12 +70,13 @@ var openDistroUserSchema = map[string]*schema.Schema{
 
 func resourceOpenSearchUser() *schema.Resource {
 	return &schema.Resource{
-		Description: "Provides an OpenSearch security user. Please refer to the OpenSearch Access Control documentation for details.",
-		Create:      resourceOpensearchOpenDistroUserCreate,
-		Read:        resourceOpensearchOpenDistroUserRead,
-		Update:      resourceOpensearchOpenDistroUserUpdate,
-		Delete:      resourceOpensearchOpenDistroUserDelete,
-		Schema:      openDistroUserSchema,
+		Description:   "Provides an OpenSearch security user. Please refer to the OpenSearch Access Control documentation for details.",
+		Create:        resourceOpensearchOpenDistroUserCreate,
+		Read:          resourceOpensearchOpenDistroUserRead,
+		Update:        resourceOpensearchOpenDistroUserUpdate,
+		Delete:        resourceOpensearchOpenDistroUserDelete,
+		Schema:        openDistroUserSchema,
+		CustomizeDiff: resourceOpensearchOpenDistroUserCustomizeDiff,
 		Importer: &schema.ResourceImporter{
 			StateContext: schema.ImportStatePassthroughContext,
 		},
@@ -96,7 +112,50 @@ func resourceOpensearchOpenDistroUserRead(d *schema.ResourceData, m interface{})
 	ds.set("backend_roles", res.BackendRoles)
 	ds.set("attributes", res.Attributes)
 	ds.set("description", res.Description)
+	// password_wo is write-only and must never be set in state.
 	return ds.err
+}
+
+func resourceOpensearchOpenDistroUserCustomizeDiff(ctx context.Context, d *schema.ResourceDiff, m interface{}) error {
+	_, hasPassword := d.GetOk("password")
+	_, hasPasswordHash := d.GetOk("password_hash")
+	hasPasswordWO := rawConfigHasValue(d, "password_wo")
+
+	count := 0
+	if hasPassword {
+		count++
+	}
+	if hasPasswordHash {
+		count++
+	}
+	if hasPasswordWO {
+		count++
+	}
+
+	if d.Id() == "" && count == 0 {
+		return fmt.Errorf("one of password, password_hash, or password_wo must be provided")
+	}
+
+	if count > 1 {
+		return fmt.Errorf("only one of password, password_hash, or password_wo can be specified")
+	}
+
+	return nil
+}
+
+// rawConfigHasValue returns true if the given attribute has a non-null value
+// in the resource's raw configuration. This is the correct way to inspect
+// write-only arguments, which are not present in plan or state.
+func rawConfigHasValue(d *schema.ResourceDiff, attr string) bool {
+	rawConfig := d.GetRawConfig()
+	if rawConfig.IsNull() || !rawConfig.Type().IsObjectType() {
+		return false
+	}
+	if !rawConfig.Type().HasAttribute(attr) {
+		return false
+	}
+	v := rawConfig.GetAttr(attr)
+	return !v.IsNull()
 }
 
 func resourceOpensearchOpenDistroUserUpdate(d *schema.ResourceData, m interface{}) error {
@@ -225,6 +284,9 @@ func resourceOpensearchPutOpenDistroUser(d *schema.ResourceData, m interface{}) 
 	if d.HasChange("password_hash") {
 		userDefinition.PasswordHash = d.Get("password_hash").(string)
 	}
+	if rawConfigPasswordWO := getRawConfigString(d, "password_wo"); rawConfigPasswordWO != "" {
+		userDefinition.Password = rawConfigPasswordWO
+	}
 
 	userJSON, err := json.Marshal(userDefinition)
 	if err != nil {
@@ -243,6 +305,9 @@ func resourceOpensearchPutOpenDistroUser(d *schema.ResourceData, m interface{}) 
 
 	// Execute request with retry logic
 	// see https://github.com/opendistro-for-elasticsearch/security/issues/1095
+	// On 409 CONFLICT, perform a fresh GET to allow the security config index to
+	// settle before retrying. The internalusers config is a single document, so
+	// concurrent writes across any user cause version collisions.
 	var resp *http.Response
 	maxRetries := 5
 	for attempt := 0; attempt < maxRetries; attempt++ {
@@ -250,6 +315,16 @@ func resourceOpensearchPutOpenDistroUser(d *schema.ResourceData, m interface{}) 
 			// Exponential backoff with jitter to avoid thundering herd
 			backoff := time.Duration(attempt*200) * time.Millisecond
 			time.Sleep(backoff)
+
+			// On conflict, refresh the internal config state with a GET before retrying.
+			// This does not change the request body but gives the security plugin a
+			// chance to converge and reduces the probability of repeated collisions.
+			if resp != nil && resp.StatusCode == http.StatusConflict {
+				log.Printf("[INFO] retrying user %s after conflict, refreshing state", username)
+				if _, refreshErr := resourceOpensearchGetOpenDistroUser(username, m); refreshErr != nil {
+					log.Printf("[WARN] failed to refresh user state during conflict retry: %v", refreshErr)
+				}
+			}
 		}
 
 		// Build request (must recreate for each attempt as body can't be reused)
@@ -307,4 +382,23 @@ type UserBody struct {
 type UserResponse struct {
 	Message string `json:"message"`
 	Status  string `json:"status"`
+}
+
+// getRawConfigString returns the string value of the given attribute from the
+// resource's raw configuration, or an empty string if the attribute is not set.
+// This is the correct way to read write-only arguments, which are not present
+// in plan or state data.
+func getRawConfigString(d *schema.ResourceData, attr string) string {
+	rawConfig := d.GetRawConfig()
+	if rawConfig.IsNull() || !rawConfig.Type().IsObjectType() {
+		return ""
+	}
+	if !rawConfig.Type().HasAttribute(attr) {
+		return ""
+	}
+	v := rawConfig.GetAttr(attr)
+	if v.IsNull() {
+		return ""
+	}
+	return v.AsString()
 }

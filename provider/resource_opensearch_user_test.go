@@ -87,6 +87,28 @@ func TestAccOpensearchOpenDistroUser(t *testing.T) {
 					),
 				),
 			},
+			{
+				Config: testAccOpenDistroUserResourceWO(randomName),
+				Check: resource.ComposeTestCheckFunc(
+					testCheckOpensearchUserExists("opensearch_user.test"),
+					resource.TestCheckResourceAttr(
+						"opensearch_user.test",
+						"id",
+						randomName,
+					),
+				),
+			},
+			{
+				Config: testAccOpenDistroUserResourceWORotated(randomName),
+				Check: resource.ComposeTestCheckFunc(
+					testCheckOpensearchUserExists("opensearch_user.test"),
+					resource.TestCheckResourceAttr(
+						"opensearch_user.test",
+						"id",
+						randomName,
+					),
+				),
+			},
 		},
 	})
 }
@@ -189,6 +211,30 @@ resource "opensearch_user" "test" {
 	`, resourceName)
 }
 
+func testAccOpenDistroUserResourceWO(resourceName string) string {
+	return fmt.Sprintf(`
+resource "opensearch_user" "test" {
+  username          = "%s"
+  password_wo       = "passw0rd@complexTest"
+  password_wo_version = 1
+  description       = "test"
+  backend_roles     = ["some_role"]
+}
+	`, resourceName)
+}
+
+func testAccOpenDistroUserResourceWORotated(resourceName string) string {
+	return fmt.Sprintf(`
+resource "opensearch_user" "test" {
+  username          = "%s"
+  password_wo       = "passw0rd@complexTest"
+  password_wo_version = 2
+  description       = "test"
+  backend_roles     = ["some_role"]
+}
+	`, resourceName)
+}
+
 func testAccOpenDistroUserResourceUpdated(resourceName string) string {
 	return fmt.Sprintf(`
 resource "opensearch_user" "test" {
@@ -272,7 +318,7 @@ func TestAccOpensearchOpenDistroUserImport(t *testing.T) {
 				ResourceName:            "opensearch_user.test",
 				ImportState:             true,
 				ImportStateVerify:       true,
-				ImportStateVerifyIgnore: []string{"password"},
+				ImportStateVerifyIgnore: []string{"password", "password_wo", "password_wo_version"},
 			},
 		},
 	})

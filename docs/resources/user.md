@@ -20,6 +20,19 @@ resource "opensearch_user" "mapper" {
   description = "a reader role for our app"
 }
 
+# Create a user with an ephemeral, write-only password (Terraform 1.11+)
+ephemeral "random_password" "reader" {
+  length           = 16
+  special          = true
+  override_special = "!#$%&*()-_=+[]{}<>:?"
+}
+
+resource "opensearch_user" "reader" {
+  username          = "app-reader"
+  password_wo       = ephemeral.random_password.reader.result
+  password_wo_version = 1
+}
+
 # And a full user, role and role mapping example:
 resource "opensearch_role" "reader" {
   role_name   = "app_reader"
@@ -29,11 +42,6 @@ resource "opensearch_role" "reader" {
     index_patterns  = ["app-*"]
     allowed_actions = ["get", "read", "search"]
   }
-}
-
-resource "opensearch_user" "reader" {
-  username = "app-reader"
-  password = var.password
 }
 
 resource "opensearch_roles_mapping" "reader" {
@@ -55,8 +63,10 @@ resource "opensearch_roles_mapping" "reader" {
 - `attributes` (Map of String) A map of arbitrary key value string pairs stored alongside of users.
 - `backend_roles` (Set of String) A list of backend roles.
 - `description` (String) Description of the user.
-- `password` (String, Sensitive) The plain text password for the user, cannot be specified with `password_hash`. Some implementations may enforce a password policy. Invalid passwords may cause a non-descriptive HTTP 400 Bad Request error. For AWS OpenSearch domains "password must be at least 8 characters long and contain at least one uppercase letter, one lowercase letter, one digit, and one special character".
-- `password_hash` (String, Sensitive) The pre-hashed password for the user, cannot be specified with `password`.
+- `password` (String, Sensitive) The plain text password for the user, cannot be specified with `password_hash` or `password_wo`. Some implementations may enforce a password policy. Invalid passwords may cause a non-descriptive HTTP 400 Bad Request error. For AWS OpenSearch domains "password must be at least 8 characters long and contain at least one uppercase letter, one lowercase letter, one digit, and one special character".
+- `password_hash` (String, Sensitive) The pre-hashed password for the user, cannot be specified with `password` or `password_wo`.
+- `password_wo` (String, Sensitive, Write-Only) The plain text password for the user as a write-only argument. This accepts ephemeral values and is not stored in Terraform plan or state. Cannot be specified with `password` or `password_hash`. Requires Terraform 1.11 or later.
+- `password_wo_version` (Number) An arbitrary version number that, when changed, indicates the `password_wo` value should be re-sent to OpenSearch. Use this to force password rotation when `password_wo` itself has not changed.
 
 ### Read-Only
 

@@ -15,18 +15,17 @@ This document outlines the current state of test coverage for the terraform-open
 
 ## Resource Inventory and Test Coverage
 
-### Comprehensive Coverage (16 resources)
+### Comprehensive Coverage (15 resources)
 These resources have CRUD tests, import tests, update tests, and handle edge cases:
 
 | Resource | Test Functions | Key Features Tested |
 |----------|---------------|---------------------|
 | `opensearch_index` | 16 | CRUD, import, analysis, date math, rollover alias, KNN config, similarity, aliases, whitespace handling |
 | `opensearch_cluster_settings` | 3 | Basic, slow logs, type list handling |
-| `opensearch_dashboard_object` | 4 | Basic, import, search, multiple objects |
-| `opensearch_user` | 2 | Basic, password hash, minimal config |
+| `opensearch_user` | 3 | Basic, password hash, minimal config, import |
 | `opensearch_role` | 2 | Basic, update, field-level security, import |
-| `opensearch_roles_mapping` | 1 | CRUD operations |
-| `opensearch_dashboard_tenant` | 1 | CRUD operations |
+| `opensearch_roles_mapping` | 2 | CRUD operations, import |
+| `opensearch_dashboard_tenant` | 2 | CRUD operations, import |
 | `opensearch_audit_config` | 1 | Full CRUD with nested structures |
 | `opensearch_monitor` | 2 | Basic, update, import |
 | `opensearch_ism_policy` | 2 | Basic, update, import |
@@ -37,13 +36,20 @@ These resources have CRUD tests, import tests, update tests, and handle edge cas
 | `opensearch_ingest_pipeline` | 2 | Basic, update, import |
 | `opensearch_snapshot_repository` | 2 | Basic, update, import |
 
+### Partial Coverage (1 resource)
+This resource has tests but lacks import coverage:
+
+| Resource | Test Functions | Key Features Tested | Missing |
+|----------|---------------|---------------------|---------|
+| `opensearch_dashboard_object` | 3 executable (1 permanently skipped) | Basic, with tenant, format validation, rejected type check | Import test |
+
 ### Missing Import Tests (4 resources)
 These resources have basic and update tests but lack import tests:
 
 | Resource | Test Functions | Missing Tests |
 |----------|---------------|---------------|
 | `opensearch_anomaly_detection` | 1 | Import test (intentionally skipped due to drift issues) |
-| `opensearch_channel_configuration` | 1 | Update test, import test |
+| `opensearch_channel_configuration` | 1 | Import test |
 | `opensearch_ism_policy_mapping` | 1 | Import test |
 | `opensearch_sm_policy` | 1 | Import test |
 
@@ -74,8 +80,8 @@ This resource has `ForceNew: true` on all fields, so update tests are not applic
 |----------|----------|---------------|
 | `opensearch_monitor` | `diffSuppressMonitor` | `id`, `last_update_time`, `enabled_time`, `schema_version`, `user`, trigger IDs, action IDs |
 | `opensearch_ism_policy` | `diffSuppressPolicy` | `last_updated_time`, `policy_id`, `schema_version`, `ism_template.last_updated_time` |
-| `opensearch_channel_configuration` | `diffSuppressChannelConfiguration` | `last_updated_time_ms`, `created_time_ms` |
-| `opensearch_anomaly_detection` | `diffSuppressAnomalyDetection` | `last_update_time` |
+| `opensearch_channel_configuration` | `diffSuppressChannelConfiguration` | `last_updated_time_ms`, `created_time_ms`, `config_id`, webhook defaults |
+| `opensearch_anomaly_detection` | `diffSuppressAnomalyDetection` | `last_update_time`, `schema_version`, `user`, API-generated detector fields, `feature_id` |
 | `opensearch_component_template` | `diffSuppressComponentTemplate` | `version`, settings normalization |
 | `opensearch_composable_index_template` | `diffSuppressComposableIndexTemplate` | `version`, `data_stream` extra attrs, settings |
 | `opensearch_index_template` | `diffSuppressIndexTemplate` | `version`, settings normalization |
@@ -89,8 +95,8 @@ These resources may experience drift issues:
 | Resource | Body Field Type | Risk Level |
 |----------|----------------|------------|
 | `opensearch_script` | Plain text source | Low |
-| `opensearch_snapshot_repository` | JSON body | Medium |
-| `opensearch_dashboard_object` | JSON body | High |
+| `opensearch_snapshot_repository` | Settings map | Low |
+| `opensearch_dashboard_object` | JSON body array | Medium |
 | `opensearch_data_stream` | No JSON body | Low |
 | `opensearch_cluster_settings` | Key-value pairs | Low |
 | `opensearch_audit_config` | Structured schema | Low |
@@ -99,7 +105,7 @@ These resources may experience drift issues:
 | `opensearch_roles_mapping` | Structured schema | Low |
 | `opensearch_dashboard_tenant` | Simple fields | Low |
 | `opensearch_index` | Multiple fields | Medium |
-| `opensearch_ism_policy_mapping` | JSON body | Medium |
+| `opensearch_ism_policy_mapping` | Structured schema | Low |
 
 ### Critical Issue: Channel Configuration and Anomaly Detection Resources
 
@@ -127,7 +133,7 @@ These resources may experience drift issues:
 
 ### How Drift is Currently Detected
 
-1. **404 on Read**: `elastic7.IsNotFound(err)` triggers removal from state
+1. **404 on Read**: `isNotFound(err)` triggers removal from state (replaces legacy `elastic7.IsNotFound` after SDK migration)
 2. **Diff on Plan**: API-added fields cause perpetual diffs (where DiffSuppressFunc is insufficient)
 3. **JSON Comparison**: Some resources compare functionally equivalent JSON
 
@@ -199,6 +205,12 @@ func normalizeAnomalyDetection(tpl map[string]interface{}) {
     }
 }
 ```
+
+**Current State:**
+- Shared utilities `RemoveCommonAPIMetadata`, `RemoveIDFields`, `NormalizeJSONBody`, `NormalizeQueryDefaults`, and `NormalizeMonitorInputs` are already implemented in `provider/diff_suppress_utils.go`.
+- `normalizeMonitor` already uses `RemoveCommonAPIMetadata`.
+- `normalizeAnomalyDetection` already calls `NormalizeQueryDefaults` on `filter_query`.
+- The outer JSON unmarshal/normalize/compare boilerplate in the nine `diffSuppress*` functions has not yet been refactored to use `NormalizeJSONBody`.
 
 **Testing:**
 - Verify no perpetual diffs in tests
@@ -298,13 +310,13 @@ func TestAccOpensearch<Resource>Update(t *testing.T) {
 
 **Resources needing update tests:**
 1. `opensearch_channel_configuration` - Only basic test exists, no update config
-2. `opensearch_anomaly_detection` - Only basic test exists, no update config
 
 **Resources needing import tests:**
 1. `opensearch_channel_configuration`
 2. `opensearch_anomaly_detection`
 3. `opensearch_ism_policy_mapping`
 4. `opensearch_sm_policy`
+5. `opensearch_dashboard_object`
 
 ---
 
@@ -480,7 +492,7 @@ func resourceOpenSearchISMPolicyMapping() *schema.Resource {
 - [ ] Add documentation for drift-prone resources
 
 ### Sprint 4 (Week 7-8): Cleanup and Documentation
-- [ ] Deprecate `opensearch_ism_policy_mapping`
+- [x] Deprecate `opensearch_ism_policy_mapping` (already deprecated in code)
 - [ ] Add drift detection warnings
 - [ ] Update resource documentation
 - [ ] Final review and testing
@@ -492,8 +504,9 @@ func resourceOpenSearchISMPolicyMapping() *schema.Resource {
 | Resource | Diff Issue | Missing Update | Missing Import | Priority |
 |----------|-----------|---------------|----------------|----------|
 | opensearch_channel_configuration | HIGH | YES | YES | **P0** |
-| opensearch_anomaly_detection | HIGH | YES | YES | **P0** |
+| opensearch_anomaly_detection | HIGH | NO | YES | **P0** |
 | opensearch_index | MEDIUM* | NO | NO | **P1** |
+| opensearch_dashboard_object | LOW | NO | YES | **P2** |
 | opensearch_ism_policy_mapping | LOW | NO | YES | **P2** |
 | opensearch_sm_policy | LOW | NO | YES | **P2** |
 | opensearch_data_stream | LOW | N/A** | NO | **P3** |
@@ -704,17 +717,17 @@ This section tracks bugs and technical debt identified during the latest code re
 
 | # | Issue | Impact | Proposed Fix | Status |
 |---|-------|--------|------------|--------|
-| 4 | **Diff suppression gaps for `ingest_pipeline`, `snapshot_repository`, and `script`** — `ingest_pipeline` has zero normalization (raw JSON compare); `snapshot_repository` and `script` have no `DiffSuppressFunc` at all. | API-added fields (`version`, formatting) cause perpetual diffs | Add normalization to `diffSuppressIngestPipeline`; add `DiffSuppressFunc` schemas to `snapshot_repository` and `script` | Pending |
+| 4 | **Diff suppression gaps for `ingest_pipeline`, `snapshot_repository`, and `script`** — `ingest_pipeline` has a `DiffSuppressFunc` but no normalization (raw JSON compare); `snapshot_repository` (settings map) and `script` (plain text source) have no `DiffSuppressFunc` at all. | API-added fields (`version`, formatting) may cause perpetual diffs | Add normalization to `diffSuppressIngestPipeline`; evaluate whether `snapshot_repository` and `script` need diff suppression | Pending |
 | 5 | **Version-gated test permanently skipped** — `TestAccOpensearchDashboardObject_Rejected` has `allowed = false` hardcoded, so it never runs even on OpenSearch 2.x+ where it should execute. | Lost test coverage for a 2.x validation | Implement actual version check using `conf.osVersion` in `PreCheck` | Pending |
 
 ### 🟢 Low Priority (Code Quality / Technical Debt)
 
 | # | Issue | Impact | Proposed Fix | Status |
 |---|-------|--------|------------|--------|
-| 6 | **Dead `allowed` booleans in ~5 other test files** — `component_template`, `composable_index_template`, `data_stream`, `ism_policy_mapping`, and `sm_policy` tests have stub version checks that never dynamically evaluate. | False sense of version safety | Remove unused booleans or implement real version checking | Pending |
-| 7 | **Shared `NormalizeJSONBody` utility unused** — all 9 diff suppress functions duplicate the same JSON unmarshal/normalize/compare boilerplate instead of calling the reusable helper. | Code duplication | Refactor all diff suppress functions to use `NormalizeJSONBody()` | Pending |
-| 8 | **Empty `analysis` map added unconditionally** — in `resource_opensearch_index.go`, `settings["analysis"] = analysis` executes even when no analysis fields are configured. | Adds empty map to index settings; potential drift | Only add the `analysis` key when at least one analysis sub-field is present | Pending |
-| 9 | **Typos and grammar** — `ojbect`, `controling`, `percentabge`, incomplete sentence in index destroy error message. | Minor documentation/comment quality | Fix spelling across `monitor.go`, `cluster_settings.go`, `index.go` | Pending |
+| 6 | **Dead `allowed` booleans in ~8 test files** — `component_template`, `composable_index_template`, `data_stream`, `ism_policy_mapping`, `sm_policy`, `dashboard_tenant`, `dashboard_object`, and `index` (rollover alias) tests have stub version checks that never dynamically evaluate. | False sense of version safety | Remove unused booleans or implement real version checking | Pending |
+| 7 | **Diff suppress functions duplicate JSON boilerplate** — all 9 diff suppress functions duplicate the same JSON unmarshal/normalize/compare boilerplate instead of calling the reusable `NormalizeJSONBody()` helper. Note: the helper itself is used indirectly by `normalizeMonitor` and `normalizeAnomalyDetection`. | Code duplication | Refactor all diff suppress functions to use `NormalizeJSONBody()` | Pending |
+| 8 | **Empty `analysis` map added unconditionally** — in `resource_opensearch_index.go`, `settings["analysis"] = analysis` executes even when no analysis fields are configured. If `settings` is otherwise non-empty, this adds an empty `analysis` object to the index request. | Adds empty map to index settings; potential drift | Only add the `analysis` key when at least one analysis sub-field is present | Pending |
+| 9 | **Typos and grammar** — `ojbect` in `monitor.go`, `controling` and `percentabge` in `cluster_settings.go`. | Minor documentation/comment quality | Fix spelling | Pending |
 
 ---
 

@@ -236,22 +236,33 @@ func resourceOpensearchPutOpenDistroRolesMapping(d *schema.ResourceData, m inter
 		return nil, err
 	}
 
-	// Build request
-	req, err := http.NewRequest("PUT", client.config.rawUrl+path, strings.NewReader(string(roleJSON)))
-	if err != nil {
-		return response, fmt.Errorf("error building PUT request: %w", err)
-	}
-	req.Header.Set("Content-Type", "application/json")
-
 	// Execute request with retry logic
 	// see https://github.com/opendistro-for-elasticsearch/security/issues/1095
+	// On 409 CONFLICT, perform a fresh GET to allow the security config index to
+	// settle before retrying. The rolesmapping config is a single document, so
+	// concurrent writes across any role mapping cause version collisions.
 	var resp *http.Response
-	maxRetries := 3
+	maxRetries := 5
 	for attempt := 0; attempt < maxRetries; attempt++ {
 		if attempt > 0 {
 			// Exponential backoff
 			time.Sleep(time.Duration(attempt*100) * time.Millisecond)
+
+			// On conflict, refresh the internal config state with a GET before retrying.
+			if resp != nil && resp.StatusCode == http.StatusConflict {
+				log.Printf("[INFO] retrying role mapping %s after conflict, refreshing state", roleName)
+				if _, refreshErr := resourceOpensearchGetOpenDistroRolesMapping(roleName, m); refreshErr != nil {
+					log.Printf("[WARN] failed to refresh role mapping state during conflict retry: %v", refreshErr)
+				}
+			}
 		}
+
+		// Build request (must recreate for each attempt as body can't be reused)
+		req, err := http.NewRequest("PUT", client.config.rawUrl+path, strings.NewReader(string(roleJSON)))
+		if err != nil {
+			return response, fmt.Errorf("error building PUT request: %w", err)
+		}
+		req.Header.Set("Content-Type", "application/json")
 
 		resp, err = client.Client.Client.Perform(req)
 		if err == nil {
