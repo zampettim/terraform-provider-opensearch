@@ -179,6 +179,7 @@ test-unit: ## Run unit tests only (no acceptance tests)
 .PHONY: test-acc
 test-acc: check-tools ## Run acceptance tests (requires 'make infra-up' first)
 	@echo "Running acceptance tests against OpenSearch $(OS_VERSION)..."
+	$(GO) clean -testcache
 	export OPENSEARCH_URL=$(OPENSEARCH_URL) && \
 	export OPENSEARCH_PREFIX=$(OPENSEARCH_PREFIX) && \
 	export TF_LOG=$(TF_LOG) && \
