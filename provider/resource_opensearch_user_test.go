@@ -236,12 +236,14 @@ resource "opensearch_user" "testuser2" {
   username    = "%s-testuser2"
   password    = "testuser2@complexTest"
   description = "testuser2"
+  depends_on  = [opensearch_user.testuser1]
 }
 
 resource "opensearch_user" "testuser3" {
   username    = "%s-testuser3"
   password    = "testuser3@complexTest"
   description = "testuser3"
+  depends_on  = [opensearch_user.testuser2]
 }
 	`, resourceName, resourceName, resourceName)
 }

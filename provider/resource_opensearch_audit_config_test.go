@@ -41,7 +41,7 @@ func TestAccOpensearchOpenSearchSecurityAuditConfig(t *testing.T) {
 				Config: testAccOpenSearchSecurityAuditConfigResourceUpdated(),
 				Check: resource.ComposeTestCheckFunc(
 					resource.TestCheckResourceAttr("opensearch_audit_config.test", "enabled", "false"),
-					testCheckOpensearchRoleExists("opensearch_audit_config.test"),
+					testCheckOpensearchSecurityAuditConfigExists("opensearch_audit_config.test"),
 					resource.TestCheckResourceAttr("opensearch_audit_config.test", "audit.0.disabled_rest_categories.#", "1"),
 				),
 			},

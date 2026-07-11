@@ -131,7 +131,10 @@ func resourceOpensearchOpenDistroRolesMappingDelete(d *schema.ResourceData, m in
 	}
 
 	// Execute request with retry logic
-	opts := defaultRetryOptions(client.config, "role mapping")
+	opts := securityRetryOptions(client.config, "role mapping", func() error {
+		_, err := resourceOpensearchGetOpenDistroRolesMapping(roleName, m)
+		return err
+	})
 	resp, err := doRequestWithRetry(opts, func() (*http.Request, error) {
 		return req, nil
 	}, client.Client.Client.Perform)

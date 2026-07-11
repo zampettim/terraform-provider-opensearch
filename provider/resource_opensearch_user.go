@@ -124,7 +124,10 @@ func resourceOpensearchOpenDistroUserDelete(d *schema.ResourceData, m interface{
 	}
 
 	// Execute request with retry logic
-	opts := defaultRetryOptions(client.config, "user")
+	opts := securityRetryOptions(client.config, "user", func() error {
+		_, err := resourceOpensearchGetOpenDistroUser(username, m)
+		return err
+	})
 	resp, err := doRequestWithRetry(opts, func() (*http.Request, error) {
 		return req, nil
 	}, client.Client.Client.Perform)
