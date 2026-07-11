@@ -135,12 +135,7 @@ func testCheckOpensearchSecurityAuditConfigExists(name string) resource.TestChec
 
 			meta := testAccOpendistroProvider.Meta()
 
-			var err error
-			if err != nil {
-				return err
-			}
-			_, err = resourceOpensearchGetAuditConfig(meta.(*ProviderConf))
-
+			_, err := resourceOpensearchGetAuditConfig(meta.(*ProviderConf))
 			if err != nil {
 				return err
 			}

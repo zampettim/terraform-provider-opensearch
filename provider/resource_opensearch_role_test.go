@@ -152,22 +152,18 @@ func testAccCheckOpensearchRoleDestroy(s *terraform.State) error {
 }
 func testCheckOpensearchRoleExists(name string) resource.TestCheckFunc {
 	return func(s *terraform.State) error {
-		for _, rs := range s.RootModule().Resources {
-			if rs.Type != "opensearch_role" {
-				continue
-			}
+		rs, ok := s.RootModule().Resources[name]
+		if !ok {
+			return fmt.Errorf("not found: %s", name)
+		}
+		if rs.Primary.ID == "" {
+			return fmt.Errorf("no resource ID is set for %s", name)
+		}
 
-			meta := testAccOpendistroProvider.Meta()
-
-			var err error
-
-			_, err = resourceOpensearchGetOpenDistroRole(rs.Primary.ID, meta.(*ProviderConf))
-
-			if err != nil {
-				return err
-			}
-
-			return nil
+		meta := testAccOpendistroProvider.Meta()
+		_, err := resourceOpensearchGetOpenDistroRole(rs.Primary.ID, meta.(*ProviderConf))
+		if err != nil {
+			return err
 		}
 
 		return nil

@@ -33,7 +33,7 @@ func defaultRetryOptions(conf *ProviderConf, resourceName string) retryOptions {
 		maxRetries:     maxRetries,
 		backoffInitial: backoff,
 		retryableStatus: map[int]struct{}{
-			http.StatusConflict:           {},
+			http.StatusConflict:            {},
 			http.StatusInternalServerError: {},
 		},
 		resourceName: resourceName,
@@ -58,7 +58,7 @@ func securityRetryOptions(conf *ProviderConf, resourceName string, refreshOn409 
 		maxRetries:     maxRetries,
 		backoffInitial: backoff,
 		retryableStatus: map[int]struct{}{
-			http.StatusConflict:           {},
+			http.StatusConflict:            {},
 			http.StatusInternalServerError: {},
 		},
 		refreshOn409: refreshOn409,

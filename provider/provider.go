@@ -308,12 +308,12 @@ func providerConfigure(ctx context.Context, d *schema.ResourceData) (interface{}
 		awsSessionToken:         resolveStringField(d, "aws_session_token", "aws_token"),
 		awsSig4Service:          d.Get("aws_signature_service").(string),
 		awsProfile:              d.Get("aws_profile").(string),
-		certPemPath:              d.Get("client_cert_path").(string),
+		certPemPath:             d.Get("client_cert_path").(string),
 		keyPemPath:              d.Get("client_key_path").(string),
 		hostOverride:            d.Get("host_override").(string),
 		proxy:                   d.Get("proxy").(string),
 		maxRetries:              d.Get("max_retries").(int),
-		retryBackoffInitialMs: d.Get("retry_backoff_initial_ms").(int),
+		retryBackoffInitialMs:   d.Get("retry_backoff_initial_ms").(int),
 	}
 
 	return conf, diags
