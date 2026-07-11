@@ -78,12 +78,3 @@ EOF
 ### Read-Only
 
 - `id` (String) The ID of this resource.
-
-## Import
-
-Import is supported using the following syntax:
-
-```shell
-# Import by name
-terraform import opensearch_anomaly_detection.foo foo
-```

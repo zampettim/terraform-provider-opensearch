@@ -81,10 +81,12 @@ EOF
 - `healthcheck` (Boolean) Set the client healthcheck option for the OpenSearch client. Healthchecking is designed for direct access to the cluster.
 - `host_override` (String) Override the host header for requests
 - `insecure` (Boolean) Disable SSL verification
+- `max_retries` (Number) Maximum number of retries for OpenSearch SDK requests
 - `opensearch_version` (String) OpenSearch version
 - `password` (String) Password for OpenSearch basic auth
 - `ping_timeout_seconds` (Number) Timeout for OpenSearch pings in seconds
 - `proxy` (String) Proxy URL for requests
+- `retry_backoff_initial_ms` (Number) Initial backoff duration in milliseconds between retries. Doubles on each attempt (exponential backoff).
 - `sign_aws_requests` (Boolean) Enable AWS request signing
 - `sniff` (Boolean) Set the node sniffing option for the OpenSearch client. Client won't work with sniffing if nodes are not routable.
 - `token` (String) Authorization token for OpenSearch

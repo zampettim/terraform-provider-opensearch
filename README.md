@@ -54,6 +54,8 @@ New environment variables are also available for previously-hardcoded-default fi
 | `OPENSEARCH_AWS_ASSUME_ROLE_EXTERNAL_ID` | `aws_assume_role_external_id` | *(empty)* |
 | `OPENSEARCH_HOST_OVERRIDE` | `host_override` | *(empty)* |
 | `OPENSEARCH_PROXY` | `proxy` | *(empty)* |
+| `OPENSEARCH_MAX_RETRIES` | `max_retries` | `3` |
+| `OPENSEARCH_RETRY_BACKOFF_INITIAL_MS` | `retry_backoff_initial_ms` | `100` |
 | `AWS_REGION` | `aws_region` | *(empty)* |
 | `AWS_ACCESS_KEY_ID` | `aws_access_key` | *(empty)* |
 | `AWS_SECRET_ACCESS_KEY` | `aws_secret_key` | *(empty)* |
@@ -141,6 +143,8 @@ TF_ACC=1 go test ./... -v -parallel 20 -cover -short
 ```
 
 Note:  Starting from version `2.12.0`, the `admin` user password is determined by the `OPENSEARCH_INITIAL_ADMIN_PASSWORD` environment variable. If testing against a cluster with version `2.12.0` or later and have set `OPENSEARCH_INITIAL_ADMIN_PASSWORD=myStrongPassword123@456`, please update the URL as follows: `export OPENSEARCH_URL=http://admin:myStrongPassword123%40456@localhost:9200`
+
+The project also provides a `Makefile` that automates the full test workflow. Use `make test-acc-os2` or `make test-acc-os3` to start containers, wait for OpenSearch, run acceptance tests, and tear down containers automatically.
 
 #### To Run Specific Test
 

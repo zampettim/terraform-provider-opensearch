@@ -225,6 +225,14 @@ goreleaser-check: check-goreleaser-tool ## Validate goreleaser configuration (sa
 	goreleaser check
 
 # ------------------------------------------------------------------------------
+# Documentation targets
+# ------------------------------------------------------------------------------
+
+.PHONY: generate-docs
+generate-docs: ## Regenerate provider documentation from schema
+	go generate ./...
+
+# ------------------------------------------------------------------------------
 # Full CI simulation targets
 # ------------------------------------------------------------------------------
 
