@@ -7,7 +7,6 @@ import (
 	"log"
 	"net/http"
 	"strings"
-	"time"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/structure"
@@ -123,29 +122,10 @@ func resourceOpensearchISMPolicyDelete(d *schema.ResourceData, m interface{}) er
 	}
 
 	// Execute request with retry logic
-	var resp *http.Response
-	maxRetries := 3
-	for attempt := 0; attempt < maxRetries; attempt++ {
-		if attempt > 0 {
-			time.Sleep(time.Duration(attempt*100) * time.Millisecond)
-		}
-
-		// Build request
-		req, err := http.NewRequest("DELETE", client.config.rawUrl+path, nil)
-		if err != nil {
-			return fmt.Errorf("error building DELETE request: %w", err)
-		}
-
-		resp, err = client.Client.Client.Perform(req)
-		if err == nil && resp.StatusCode != http.StatusConflict && resp.StatusCode != http.StatusInternalServerError {
-			break
-		}
-
-		if resp != nil {
-			resp.Body.Close()
-		}
-	}
-
+	opts := ismRetryOptions(client.config, "ism policy")
+	resp, err := doRequestWithRetry(opts, func() (*http.Request, error) {
+		return http.NewRequest("DELETE", client.config.rawUrl+path, nil)
+	}, client.Client.Client.Perform)
 	if err != nil {
 		return fmt.Errorf("error deleting policy: %s: %w", path, err)
 	}
@@ -232,36 +212,15 @@ func resourceOpensearchPutISMPolicy(d *schema.ResourceData, m interface{}) (*Put
 	}
 
 	// Execute request with retry logic
-	var resp *http.Response
-	maxRetries := 3
-	for attempt := 0; attempt < maxRetries; attempt++ {
-		if attempt > 0 {
-			// Exponential backoff
-			time.Sleep(time.Duration(attempt*100) * time.Millisecond)
-		}
-
-		// Build request (must recreate for each attempt as body can't be reused)
+	opts := ismRetryOptions(client.config, "ism policy")
+	resp, err := doRequestWithRetry(opts, func() (*http.Request, error) {
 		req, err := http.NewRequest("PUT", client.config.rawUrl+path, strings.NewReader(policyJSON))
 		if err != nil {
-			return response, fmt.Errorf("error building PUT request: %w", err)
+			return nil, err
 		}
 		req.Header.Set("Content-Type", "application/json")
-
-		resp, err = client.Client.Client.Perform(req)
-		if err == nil {
-			// Check if we should retry
-			if resp.StatusCode != http.StatusConflict && resp.StatusCode != http.StatusInternalServerError {
-				break
-			}
-			resp.Body.Close()
-		} else {
-			// Request failed, will retry
-			if attempt < maxRetries-1 {
-				continue
-			}
-		}
-	}
-
+		return req, nil
+	}, client.Client.Client.Perform)
 	if err != nil {
 		return response, fmt.Errorf("error putting policy: %s: %w", path, err)
 	}

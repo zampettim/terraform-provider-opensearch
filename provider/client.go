@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"time"
 
 	"github.com/opensearch-project/opensearch-go/v4"
 	"github.com/opensearch-project/opensearch-go/v4/opensearchapi"
@@ -20,7 +21,13 @@ type OpenSearchClient struct {
 // NewOpenSearchClient creates a new OpenSearch client using the official SDK
 func NewOpenSearchClient(conf *ProviderConf) (*OpenSearchClient, error) {
 	cfg := opensearch.Config{
-		Addresses: []string{conf.rawUrl},
+		Addresses:            []string{conf.rawUrl},
+		MaxRetries:           conf.maxRetries,
+		EnableRetryOnTimeout: true,
+		RetryOnStatus:        []int{http.StatusBadGateway, http.StatusServiceUnavailable, http.StatusGatewayTimeout},
+		RetryBackoff: func(attempt int) time.Duration {
+			return time.Duration(1<<attempt) * time.Duration(conf.retryBackoffInitialMs) * time.Millisecond
+		},
 	}
 
 	// Configure transport with TLS settings

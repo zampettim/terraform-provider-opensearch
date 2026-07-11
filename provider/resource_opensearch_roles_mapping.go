@@ -7,7 +7,6 @@ import (
 	"log"
 	"net/http"
 	"strings"
-	"time"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
@@ -132,23 +131,10 @@ func resourceOpensearchOpenDistroRolesMappingDelete(d *schema.ResourceData, m in
 	}
 
 	// Execute request with retry logic
-	var resp *http.Response
-	maxRetries := 3
-	for attempt := 0; attempt < maxRetries; attempt++ {
-		if attempt > 0 {
-			time.Sleep(time.Duration(attempt*100) * time.Millisecond)
-		}
-
-		resp, err = client.Client.Client.Perform(req)
-		if err == nil && resp.StatusCode != http.StatusConflict && resp.StatusCode != http.StatusInternalServerError {
-			break
-		}
-
-		if resp != nil {
-			resp.Body.Close()
-		}
-	}
-
+	opts := defaultRetryOptions(client.config, "role mapping")
+	resp, err := doRequestWithRetry(opts, func() (*http.Request, error) {
+		return req, nil
+	}, client.Client.Client.Perform)
 	if err != nil {
 		return fmt.Errorf("error deleting role mapping: %w", err)
 	}
@@ -236,37 +222,20 @@ func resourceOpensearchPutOpenDistroRolesMapping(d *schema.ResourceData, m inter
 		return nil, err
 	}
 
-	// Build request
-	req, err := http.NewRequest("PUT", client.config.rawUrl+path, strings.NewReader(string(roleJSON)))
-	if err != nil {
-		return response, fmt.Errorf("error building PUT request: %w", err)
-	}
-	req.Header.Set("Content-Type", "application/json")
-
 	// Execute request with retry logic
 	// see https://github.com/opendistro-for-elasticsearch/security/issues/1095
-	var resp *http.Response
-	maxRetries := 3
-	for attempt := 0; attempt < maxRetries; attempt++ {
-		if attempt > 0 {
-			// Exponential backoff
-			time.Sleep(time.Duration(attempt*100) * time.Millisecond)
+	opts := securityRetryOptions(client.config, "role mapping", func() error {
+		_, err := resourceOpensearchGetOpenDistroRolesMapping(roleName, m)
+		return err
+	})
+	resp, err := doRequestWithRetry(opts, func() (*http.Request, error) {
+		req, err := http.NewRequest("PUT", client.config.rawUrl+path, strings.NewReader(string(roleJSON)))
+		if err != nil {
+			return nil, err
 		}
-
-		resp, err = client.Client.Client.Perform(req)
-		if err == nil {
-			// Check if we should retry
-			if resp.StatusCode != http.StatusConflict && resp.StatusCode != http.StatusInternalServerError {
-				break
-			}
-			resp.Body.Close()
-		} else {
-			// Request failed, will retry
-			if attempt < maxRetries-1 {
-				continue
-			}
-		}
-	}
+		req.Header.Set("Content-Type", "application/json")
+		return req, nil
+	}, client.Client.Client.Perform)
 
 	if err != nil {
 		return response, err

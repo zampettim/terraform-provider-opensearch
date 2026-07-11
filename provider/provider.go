@@ -52,6 +52,8 @@ type ProviderConf struct {
 	keyPemPath              string
 	hostOverride            string
 	proxy                   string
+	maxRetries              int
+	retryBackoffInitialMs   int
 	// determined after connecting to the server
 	flavor ServerFlavor
 	// New opensearch-go/v4 client (Phase 2 migration)
@@ -220,6 +222,18 @@ func Provider() *schema.Provider {
 				DefaultFunc: schema.EnvDefaultFunc("OPENSEARCH_PROXY", nil),
 				Description: "Proxy URL for requests",
 			},
+			"max_retries": {
+				Type:        schema.TypeInt,
+				Optional:    true,
+				DefaultFunc: schema.EnvDefaultFunc("OPENSEARCH_MAX_RETRIES", 3),
+				Description: "Maximum number of retries for OpenSearch SDK requests",
+			},
+			"retry_backoff_initial_ms": {
+				Type:        schema.TypeInt,
+				Optional:    true,
+				DefaultFunc: schema.EnvDefaultFunc("OPENSEARCH_RETRY_BACKOFF_INITIAL_MS", 100),
+				Description: "Initial backoff duration in milliseconds between retries. Doubles on each attempt (exponential backoff).",
+			},
 		},
 
 		ResourcesMap: map[string]*schema.Resource{
@@ -294,10 +308,12 @@ func providerConfigure(ctx context.Context, d *schema.ResourceData) (interface{}
 		awsSessionToken:         resolveStringField(d, "aws_session_token", "aws_token"),
 		awsSig4Service:          d.Get("aws_signature_service").(string),
 		awsProfile:              d.Get("aws_profile").(string),
-		certPemPath:             d.Get("client_cert_path").(string),
+		certPemPath:              d.Get("client_cert_path").(string),
 		keyPemPath:              d.Get("client_key_path").(string),
 		hostOverride:            d.Get("host_override").(string),
 		proxy:                   d.Get("proxy").(string),
+		maxRetries:              d.Get("max_retries").(int),
+		retryBackoffInitialMs: d.Get("retry_backoff_initial_ms").(int),
 	}
 
 	return conf, diags

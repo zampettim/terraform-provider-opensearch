@@ -228,30 +228,15 @@ func resourceOpensearchPostOpendistroPolicyMapping(d *schema.ResourceData, m int
 	}
 
 	// Execute request with retry logic
-	var resp *http.Response
-	maxRetries := 3
-	for attempt := 0; attempt < maxRetries; attempt++ {
-		if attempt > 0 {
-			time.Sleep(time.Duration(attempt*100) * time.Millisecond)
-		}
-
-		// Build request
+	opts := defaultRetryOptions(client.config, "ism policy mapping")
+	resp, err := doRequestWithRetry(opts, func() (*http.Request, error) {
 		req, err := http.NewRequest("POST", client.config.rawUrl+path, strings.NewReader(requestBody))
 		if err != nil {
-			return response, fmt.Errorf("error building POST request: %w", err)
+			return nil, err
 		}
 		req.Header.Set("Content-Type", "application/json")
-
-		resp, err = client.Client.Client.Perform(req)
-		if err == nil && resp.StatusCode != http.StatusConflict && resp.StatusCode != http.StatusInternalServerError {
-			break
-		}
-
-		if resp != nil {
-			resp.Body.Close()
-		}
-	}
-
+		return req, nil
+	}, client.Client.Client.Perform)
 	if err != nil {
 		return response, fmt.Errorf("error posting policy attachment: %s: %w", path, err)
 	}
@@ -286,29 +271,10 @@ func resourceOpensearchGetOpendistroPolicyMapping(indexPattern string, m interfa
 	}
 
 	// Execute request with retry logic
-	var resp *http.Response
-	maxRetries := 3
-	for attempt := 0; attempt < maxRetries; attempt++ {
-		if attempt > 0 {
-			time.Sleep(time.Duration(attempt*100) * time.Millisecond)
-		}
-
-		// Build request
-		req, err := http.NewRequest("GET", client.config.rawUrl+path, nil)
-		if err != nil {
-			return *response, fmt.Errorf("error building GET request: %w", err)
-		}
-
-		resp, err = client.Client.Client.Perform(req)
-		if err == nil && resp.StatusCode != http.StatusConflict && resp.StatusCode != http.StatusInternalServerError {
-			break
-		}
-
-		if resp != nil {
-			resp.Body.Close()
-		}
-	}
-
+	opts := defaultRetryOptions(client.config, "ism policy mapping")
+	resp, err := doRequestWithRetry(opts, func() (*http.Request, error) {
+		return http.NewRequest("GET", client.config.rawUrl+path, nil)
+	}, client.Client.Client.Perform)
 	if err != nil {
 		return *response, fmt.Errorf("error getting policy attachment: %s: %w", path, err)
 	}

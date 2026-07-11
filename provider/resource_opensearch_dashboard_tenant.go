@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"regexp"
 	"strings"
-	"time"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
@@ -122,29 +121,10 @@ func resourceOpensearchOpenDistroDashboardTenantDelete(d *schema.ResourceData, m
 	}
 
 	// Execute request with retry logic
-	var resp *http.Response
-	maxRetries := 3
-	for attempt := 0; attempt < maxRetries; attempt++ {
-		if attempt > 0 {
-			// Exponential backoff
-			time.Sleep(time.Duration(attempt*100) * time.Millisecond)
-		}
-
-		req, err := http.NewRequest("DELETE", client.config.rawUrl+path, nil)
-		if err != nil {
-			return fmt.Errorf("error building DELETE request: %w", err)
-		}
-
-		resp, err = client.Client.Client.Perform(req)
-		if err == nil {
-			// Check if we should retry on conflict or internal server error
-			if resp.StatusCode != http.StatusConflict && resp.StatusCode != http.StatusInternalServerError {
-				break
-			}
-			resp.Body.Close()
-		}
-	}
-
+	opts := defaultRetryOptions(client.config, "tenant")
+	resp, err := doRequestWithRetry(opts, func() (*http.Request, error) {
+		return http.NewRequest("DELETE", client.config.rawUrl+path, nil)
+	}, client.Client.Client.Perform)
 	if err != nil {
 		return fmt.Errorf("error deleting tenant: %w", err)
 	}
@@ -224,39 +204,24 @@ func resourceOpensearchPutOpenDistroDashboardTenant(d *schema.ResourceData, m in
 	}
 
 	// Execute request with retry logic
-	var resp *http.Response
-	var body []byte
-	maxRetries := 3
-	for attempt := 0; attempt < maxRetries; attempt++ {
-		if attempt > 0 {
-			// Exponential backoff
-			time.Sleep(time.Duration(attempt*100) * time.Millisecond)
-		}
-
+	opts := defaultRetryOptions(client.config, "tenant")
+	resp, err := doRequestWithRetry(opts, func() (*http.Request, error) {
 		req, err := http.NewRequest("PUT", client.config.rawUrl+path, strings.NewReader(string(tenantJSON)))
 		if err != nil {
-			return response, fmt.Errorf("error building PUT request: %w", err)
+			return nil, err
 		}
 		req.Header.Set("Content-Type", "application/json")
-
-		resp, err = client.Client.Client.Perform(req)
-		if err == nil {
-			// Read response body
-			body, err = io.ReadAll(resp.Body)
-			resp.Body.Close()
-			if err != nil {
-				return response, fmt.Errorf("error reading response body: %w", err)
-			}
-
-			// Check if we should retry on conflict or internal server error
-			if resp.StatusCode != http.StatusConflict && resp.StatusCode != http.StatusInternalServerError {
-				break
-			}
-		}
-	}
-
+		return req, nil
+	}, client.Client.Client.Perform)
 	if err != nil {
 		return response, fmt.Errorf("error putting tenant: %w", err)
+	}
+	defer resp.Body.Close()
+
+	// Read response body
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return response, fmt.Errorf("error reading response body: %w", err)
 	}
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
