@@ -138,9 +138,7 @@ func testAccCheckOpensearchRoleDestroy(s *terraform.State) error {
 		meta := testAccOpendistroProvider.Meta()
 
 		var err error
-		if err != nil {
-			return err
-		}
+
 		_, err = resourceOpensearchGetOpenDistroRole(rs.Primary.ID, meta.(*ProviderConf))
 
 		if err != nil {
@@ -162,9 +160,7 @@ func testCheckOpensearchRoleExists(name string) resource.TestCheckFunc {
 			meta := testAccOpendistroProvider.Meta()
 
 			var err error
-			if err != nil {
-				return err
-			}
+
 			_, err = resourceOpensearchGetOpenDistroRole(rs.Primary.ID, meta.(*ProviderConf))
 
 			if err != nil {

@@ -134,6 +134,9 @@ func doRequestWithRetry(opts retryOptions, requestBuilder func() (*http.Request,
 		return resp, fmt.Errorf("error %s: %w", opts.resourceName, lastErr)
 	}
 	if resp != nil {
+		if _, retryable := opts.retryableStatus[resp.StatusCode]; retryable {
+			return resp, fmt.Errorf("error %s: received status code %d after %d attempts", opts.resourceName, resp.StatusCode, opts.maxRetries)
+		}
 		return resp, nil
 	}
 	return nil, fmt.Errorf("exhausted retries for %s", opts.resourceName)

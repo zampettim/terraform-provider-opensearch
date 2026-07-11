@@ -3,6 +3,7 @@ package provider
 import (
 	"crypto/tls"
 	"crypto/x509"
+	"fmt"
 	"log"
 	"net/http"
 	"net/url"
@@ -64,7 +65,9 @@ func NewOpenSearchClient(conf *ProviderConf) (*OpenSearchClient, error) {
 		if err != nil {
 			caCertPool = x509.NewCertPool()
 		}
-		caCertPool.AppendCertsFromPEM([]byte(caCert))
+		if !caCertPool.AppendCertsFromPEM([]byte(caCert)) {
+			return nil, fmt.Errorf("failed to append certificates from cacert_file: no valid certificates found")
+		}
 		transport.TLSClientConfig.RootCAs = caCertPool
 	}
 
