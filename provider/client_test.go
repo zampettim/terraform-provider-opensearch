@@ -91,7 +91,9 @@ func TestHostOverrideTransport(t *testing.T) {
 func TestNewOpenSearchClient_Basic(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		w.Write([]byte(`{"version":{"number":"2.19.5","distribution":"opensearch"}}`))
+		if _, err := w.Write([]byte(`{"version":{"number":"2.19.5","distribution":"opensearch"}}`)); err != nil {
+			t.Errorf("failed to write response: %v", err)
+		}
 	}))
 	defer ts.Close()
 
@@ -116,7 +118,9 @@ func TestNewOpenSearchClient_TokenAuth(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		seenAuth = r.Header.Get("Authorization")
 		w.Header().Set("Content-Type", "application/json")
-		w.Write([]byte(`{"version":{"number":"2.19.5","distribution":"opensearch"}}`))
+		if _, err := w.Write([]byte(`{"version":{"number":"2.19.5","distribution":"opensearch"}}`)); err != nil {
+			t.Errorf("failed to write response: %v", err)
+		}
 	}))
 	defer ts.Close()
 
@@ -148,7 +152,9 @@ func TestNewOpenSearchClient_HostOverride(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		seenHost = r.Host
 		w.Header().Set("Content-Type", "application/json")
-		w.Write([]byte(`{"version":{"number":"2.19.5","distribution":"opensearch"}}`))
+		if _, err := w.Write([]byte(`{"version":{"number":"2.19.5","distribution":"opensearch"}}`)); err != nil {
+			t.Errorf("failed to write response: %v", err)
+		}
 	}))
 	defer ts.Close()
 
@@ -201,6 +207,6 @@ func TestNewOpenSearchClient_CACertInvalid(t *testing.T) {
 		t.Fatal("expected error for invalid CA cert")
 	}
 	if !strings.Contains(err.Error(), "failed to append certificates") && !strings.Contains(err.Error(), x509.CertificateInvalidError{}.Error()) {
-		// The exact error varies; accept any error.
+		t.Fatalf("unexpected error: %v", err)
 	}
 }
