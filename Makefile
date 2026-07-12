@@ -179,6 +179,7 @@ test-unit: ## Run unit tests only (no acceptance tests)
 .PHONY: test-acc
 test-acc: check-tools ## Run acceptance tests (requires 'make infra-up' first)
 	@echo "Running acceptance tests against OpenSearch $(OS_VERSION)..."
+	$(GO) clean -testcache
 	export OPENSEARCH_URL=$(OPENSEARCH_URL) && \
 	export OPENSEARCH_PREFIX=$(OPENSEARCH_PREFIX) && \
 	export TF_LOG=$(TF_LOG) && \
@@ -223,6 +224,14 @@ build-snapshot: check-goreleaser-tool ## Build release binaries via GoReleaser s
 .PHONY: goreleaser-check
 goreleaser-check: check-goreleaser-tool ## Validate goreleaser configuration (same as CI)
 	goreleaser check
+
+# ------------------------------------------------------------------------------
+# Documentation targets
+# ------------------------------------------------------------------------------
+
+.PHONY: generate-docs
+generate-docs: ## Regenerate provider documentation from schema
+	go generate ./...
 
 # ------------------------------------------------------------------------------
 # Full CI simulation targets

@@ -7,7 +7,6 @@ import (
 	"log"
 	"net/http"
 	"strings"
-	"time"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
@@ -419,31 +418,15 @@ func resourceOpensearchPutAuditConfig(d *schema.ResourceData, m interface{}) (*p
 	path := "/_plugins/_security/api/audit/config"
 
 	// Execute request with retry logic
-	var resp *http.Response
-	maxRetries := 3
-	for attempt := 0; attempt < maxRetries; attempt++ {
-		if attempt > 0 {
-			// Exponential backoff
-			time.Sleep(time.Duration(attempt*100) * time.Millisecond)
-		}
-
-		// Build request (must recreate for each attempt as body can't be reused)
+	opts := auditRetryOptions(client.config)
+	resp, err := doRequestWithRetry(opts, func() (*http.Request, error) {
 		req, err := http.NewRequest("PUT", client.config.rawUrl+path, strings.NewReader(string(auditConfigJSON)))
 		if err != nil {
-			return response, fmt.Errorf("error building PUT request: %w", err)
+			return nil, err
 		}
 		req.Header.Set("Content-Type", "application/json")
-
-		resp, err = client.Client.Client.Perform(req)
-		if err == nil {
-			// Check if we should retry on 500 errors
-			if resp.StatusCode != http.StatusInternalServerError {
-				break
-			}
-			resp.Body.Close()
-		}
-	}
-
+		return req, nil
+	}, client.Client.Client.Perform)
 	if err != nil {
 		log.Printf("[ERROR] error creating audit config: %v", err)
 		return response, err

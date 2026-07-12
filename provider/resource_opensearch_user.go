@@ -7,7 +7,6 @@ import (
 	"log"
 	"net/http"
 	"strings"
-	"time"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
@@ -125,23 +124,13 @@ func resourceOpensearchOpenDistroUserDelete(d *schema.ResourceData, m interface{
 	}
 
 	// Execute request with retry logic
-	var resp *http.Response
-	maxRetries := 3
-	for attempt := 0; attempt < maxRetries; attempt++ {
-		if attempt > 0 {
-			time.Sleep(time.Duration(attempt*100) * time.Millisecond)
-		}
-
-		resp, err = client.Client.Client.Perform(req)
-		if err == nil && resp.StatusCode != http.StatusConflict && resp.StatusCode != http.StatusInternalServerError {
-			break
-		}
-
-		if resp != nil {
-			resp.Body.Close()
-		}
-	}
-
+	opts := securityRetryOptions(client.config, "user", func() error {
+		_, err := resourceOpensearchGetOpenDistroUser(username, m)
+		return err
+	})
+	resp, err := doRequestWithRetry(opts, func() (*http.Request, error) {
+		return req, nil
+	}, client.Client.Client.Perform)
 	if err != nil {
 		return fmt.Errorf("error deleting user: %w", err)
 	}
@@ -243,32 +232,18 @@ func resourceOpensearchPutOpenDistroUser(d *schema.ResourceData, m interface{}) 
 
 	// Execute request with retry logic
 	// see https://github.com/opendistro-for-elasticsearch/security/issues/1095
-	var resp *http.Response
-	maxRetries := 5
-	for attempt := 0; attempt < maxRetries; attempt++ {
-		if attempt > 0 {
-			// Exponential backoff with jitter to avoid thundering herd
-			backoff := time.Duration(attempt*200) * time.Millisecond
-			time.Sleep(backoff)
-		}
-
-		// Build request (must recreate for each attempt as body can't be reused)
+	opts := securityRetryOptions(client.config, "user", func() error {
+		_, err := resourceOpensearchGetOpenDistroUser(username, m)
+		return err
+	})
+	resp, err := doRequestWithRetry(opts, func() (*http.Request, error) {
 		req, err := http.NewRequest("PUT", client.config.rawUrl+path, strings.NewReader(string(userJSON)))
 		if err != nil {
-			return response, fmt.Errorf("error building PUT request: %w", err)
+			return nil, err
 		}
 		req.Header.Set("Content-Type", "application/json")
-
-		resp, err = client.Client.Client.Perform(req)
-		if err == nil {
-			// Check if we should retry - 409 CONFLICT is expected for concurrent security config updates
-			if resp.StatusCode != http.StatusConflict && resp.StatusCode != http.StatusInternalServerError {
-				break
-			}
-			// For 409/500, close body and retry
-			resp.Body.Close()
-		}
-	}
+		return req, nil
+	}, client.Client.Client.Perform)
 
 	if err != nil {
 		log.Printf("[INFO] error creating user: %v", err)

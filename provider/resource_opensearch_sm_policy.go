@@ -11,7 +11,6 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/structure"
@@ -134,30 +133,10 @@ func resourceOpensearchSMPolicyDelete(d *schema.ResourceData, m interface{}) err
 	}
 
 	// Execute request with retry logic
-	var resp *http.Response
-	maxRetries := 3
-	for attempt := 0; attempt < maxRetries; attempt++ {
-		if attempt > 0 {
-			// Exponential backoff
-			time.Sleep(time.Duration(attempt*100) * time.Millisecond)
-		}
-
-		// Build request
-		req, err := http.NewRequest("DELETE", client.config.rawUrl+path, nil)
-		if err != nil {
-			return fmt.Errorf("error building DELETE request: %w", err)
-		}
-
-		resp, err = client.Client.Client.Perform(req)
-		if err == nil {
-			// Check if we should retry on conflict
-			if resp.StatusCode != http.StatusConflict {
-				break
-			}
-			resp.Body.Close()
-		}
-	}
-
+	opts := ismRetryOptions(client.config, "sm policy")
+	resp, err := doRequestWithRetry(opts, func() (*http.Request, error) {
+		return http.NewRequest("DELETE", client.config.rawUrl+path, nil)
+	}, client.Client.Client.Perform)
 	if err != nil {
 		return fmt.Errorf("error deleting policy: %+v : %+v", path, err)
 	}
@@ -237,40 +216,24 @@ func resourceOpensearchPostPutSMPolicy(d *schema.ResourceData, m interface{}, me
 	}
 
 	// Execute request with retry logic
-	var resp *http.Response
-	var body []byte
-	maxRetries := 3
-	for attempt := 0; attempt < maxRetries; attempt++ {
-		if attempt > 0 {
-			// Exponential backoff
-			time.Sleep(time.Duration(attempt*100) * time.Millisecond)
-		}
-
-		// Build request (must recreate for each attempt as body can't be reused)
+	opts := ismRetryOptions(client.config, "sm policy")
+	resp, err := doRequestWithRetry(opts, func() (*http.Request, error) {
 		req, err := http.NewRequest(method, client.config.rawUrl+path, strings.NewReader(policyJSON))
 		if err != nil {
-			return response, fmt.Errorf("error building %s request: %w", method, err)
+			return nil, err
 		}
 		req.Header.Set("Content-Type", "application/json")
-
-		resp, err = client.Client.Client.Perform(req)
-		if err == nil {
-			// Read response body
-			body, err = io.ReadAll(resp.Body)
-			resp.Body.Close()
-			if err != nil {
-				return response, fmt.Errorf("error reading response body: %w", err)
-			}
-
-			// Check if we should retry on conflict
-			if resp.StatusCode != http.StatusConflict {
-				break
-			}
-		}
-	}
-
+		return req, nil
+	}, client.Client.Client.Perform)
 	if err != nil {
 		return response, fmt.Errorf("error %s policy: %+v : %+v", method, path, err)
+	}
+	defer resp.Body.Close()
+
+	// Read response body
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return response, fmt.Errorf("error reading response body: %w", err)
 	}
 
 	// Check status code

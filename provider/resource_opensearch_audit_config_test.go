@@ -41,7 +41,7 @@ func TestAccOpensearchOpenSearchSecurityAuditConfig(t *testing.T) {
 				Config: testAccOpenSearchSecurityAuditConfigResourceUpdated(),
 				Check: resource.ComposeTestCheckFunc(
 					resource.TestCheckResourceAttr("opensearch_audit_config.test", "enabled", "false"),
-					testCheckOpensearchRoleExists("opensearch_audit_config.test"),
+					testCheckOpensearchSecurityAuditConfigExists("opensearch_audit_config.test"),
 					resource.TestCheckResourceAttr("opensearch_audit_config.test", "audit.0.disabled_rest_categories.#", "1"),
 				),
 			},
@@ -135,12 +135,7 @@ func testCheckOpensearchSecurityAuditConfigExists(name string) resource.TestChec
 
 			meta := testAccOpendistroProvider.Meta()
 
-			var err error
-			if err != nil {
-				return err
-			}
-			_, err = resourceOpensearchGetAuditConfig(meta.(*ProviderConf))
-
+			_, err := resourceOpensearchGetAuditConfig(meta.(*ProviderConf))
 			if err != nil {
 				return err
 			}
