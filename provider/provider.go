@@ -26,7 +26,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 
 	elastic7 "github.com/olivere/elastic/v7"
-	"github.com/opensearch-project/opensearch-go/v2"
+	"github.com/opensearch-project/opensearch-go/v4"
 )
 
 type ServerFlavor int64
@@ -71,11 +71,13 @@ type ProviderConf struct {
 	keyPemPath               string
 	hostOverride             string
 	proxy                    string
+	maxRetries              int
+	retryBackoffInitialMs   int
 	// determined after connecting to the server
 	flavor ServerFlavor
 
-	// official OpenSearch client
-	osClient *opensearch.Client
+	// official OpenSearch client (v4)
+	osClient *OpenSearchClient
 }
 
 func Provider() *schema.Provider {
@@ -245,7 +247,20 @@ func Provider() *schema.Provider {
 			"proxy": {
 				Type:        schema.TypeString,
 				Optional:    true,
-				Description: "Proxy URL to use for requests to OpenSearch.",
+				DefaultFunc: schema.EnvDefaultFunc("OPENSEARCH_PROXY", nil),
+				Description: "Proxy URL for requests",
+			},
+			"max_retries": {
+				Type:        schema.TypeInt,
+				Optional:    true,
+				DefaultFunc: schema.EnvDefaultFunc("OPENSEARCH_MAX_RETRIES", 3),
+				Description: "Maximum number of retries for OpenSearch SDK requests",
+			},
+			"retry_backoff_initial_ms": {
+				Type:        schema.TypeInt,
+				Optional:    true,
+				DefaultFunc: schema.EnvDefaultFunc("OPENSEARCH_RETRY_BACKOFF_INITIAL_MS", 100),
+				Description: "Initial backoff duration in milliseconds between retries. Doubles on each attempt (exponential backoff).",
 			},
 		},
 
@@ -284,6 +299,20 @@ func Provider() *schema.Provider {
 	}
 }
 
+func getOpenSearchClient(conf *ProviderConf) (*OpenSearchClient, error) {
+	if conf.osClient != nil {
+		return conf.osClient, nil
+	}
+
+	client, err := NewOpenSearchClient(conf)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create OpenSearch client: %w", err)
+	}
+
+	conf.osClient = client
+	return client, nil
+}
+
 func providerConfigure(c context.Context, d *schema.ResourceData) (interface{}, diag.Diagnostics) {
 	rawUrl := d.Get("url").(string)
 	parsedUrl, err := url.Parse(rawUrl)
@@ -292,46 +321,65 @@ func providerConfigure(c context.Context, d *schema.ResourceData) (interface{}, 
 	}
 
 	conf := &ProviderConf{
-		rawUrl:             rawUrl,
-		insecure:           d.Get("insecure").(bool),
-		sniffing:           d.Get("sniff").(bool),
-		healthchecking:     d.Get("healthcheck").(bool),
-		cacertFile:         d.Get("cacert_file").(string),
-		username:           d.Get("username").(string),
-		password:           d.Get("password").(string),
-		token:              d.Get("token").(string),
-		tokenName:          d.Get("token_name").(string),
-		parsedUrl:          parsedUrl,
-		signAWSRequests:    d.Get("sign_aws_requests").(bool),
-		awsSig4Service:     d.Get("aws_signature_service").(string),
-		osVersion:          d.Get("opensearch_version").(string),
-		pingTimeoutSeconds: d.Get("version_ping_timeout").(int),
-		awsRegion:          d.Get("aws_region").(string),
-
-		awsAssumeRoleArn:         d.Get("aws_assume_role_arn").(string),
-		awsAssumeRoleExternalID:  d.Get("aws_assume_role_external_id").(string),
+		rawUrl:                  rawUrl,
+		parsedUrl:               parsedUrl,
+		sniffing:                d.Get("sniff").(bool),
+		healthchecking:          d.Get("healthcheck").(bool),
+		username:                d.Get("username").(string),
+		password:                d.Get("password").(string),
+		token:                   d.Get("token").(string),
+		tokenName:               d.Get("token_name").(string),
+		insecure:                d.Get("insecure").(bool),
+		cacertFile:              d.Get("cacert_file").(string),
+		signAWSRequests:         d.Get("sign_aws_requests").(bool),
+		osVersion:               d.Get("opensearch_version").(string),
+		pingTimeoutSeconds:      resolveIntField(d, "ping_timeout_seconds", "version_ping_timeout", 5),
+		awsRegion:               d.Get("aws_region").(string),
+		awsAssumeRoleArn:        d.Get("aws_assume_role_arn").(string),
+		awsAssumeRoleExternalID: d.Get("aws_assume_role_external_id").(string),
 		awsAssumeRoleSessionName: d.Get("aws_assume_role_session_name").(string),
 		awsWebIdentityRoleArn:    d.Get("aws_web_identity_role_arn").(string),
 		awsWebIdentityTokenFile:  d.Get("aws_web_identity_token_file").(string),
-		awsAccessKeyId:           d.Get("aws_access_key").(string),
-		awsSecretAccessKey:       d.Get("aws_secret_key").(string),
-		awsSessionToken:          d.Get("aws_token").(string),
-		awsProfile:               d.Get("aws_profile").(string),
-		certPemPath:              d.Get("client_cert_path").(string),
-		keyPemPath:               d.Get("client_key_path").(string),
-		hostOverride:             d.Get("host_override").(string),
-		proxy:                    d.Get("proxy").(string),
+		awsAccessKeyId:          d.Get("aws_access_key").(string),
+		awsSecretAccessKey:      d.Get("aws_secret_key").(string),
+		awsSessionToken:         resolveStringField(d, "aws_session_token", "aws_token"),
+		awsSig4Service:          d.Get("aws_signature_service").(string),
+		awsProfile:              d.Get("aws_profile").(string),
+		certPemPath:             d.Get("client_cert_path").(string),
+		keyPemPath:              d.Get("client_key_path").(string),
+		hostOverride:            d.Get("host_override").(string),
+		proxy:                   d.Get("proxy").(string),
+		maxRetries:              d.Get("max_retries").(int),
+		retryBackoffInitialMs:   d.Get("retry_backoff_initial_ms").(int),
 	}
-
-	osClient, err := getOSClient(conf)
-	if err != nil {
-		return nil, diag.FromErr(err)
-	}
-	conf.osClient = osClient
 
 	resolveAWSWebIdentityEnv(conf)
 
+	if _, err := getOpenSearchClient(conf); err != nil {
+		return nil, diag.FromErr(err)
+	}
+
 	return conf, awsCredentialWarnings(conf)
+}
+
+func resolveStringField(d *schema.ResourceData, newField, oldField string) string {
+	if v, ok := d.Get(newField).(string); ok && v != "" {
+		return v
+	}
+	if v, ok := d.Get(oldField).(string); ok {
+		return v
+	}
+	return ""
+}
+
+func resolveIntField(d *schema.ResourceData, newField, oldField string, defaultVal int) int {
+	if v, ok := d.Get(newField).(int); ok && v != 0 {
+		return v
+	}
+	if v, ok := d.Get(oldField).(int); ok && v != 0 {
+		return v
+	}
+	return defaultVal
 }
 
 // resolveAWSWebIdentityEnv applies the standard web identity environment

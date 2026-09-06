@@ -13,7 +13,6 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
-	"github.com/opensearch-project/opensearch-go/v2"
 )
 
 const (
@@ -992,7 +991,7 @@ func undeployMLModel(ctx context.Context, conf *ProviderConf, modelID string) er
 	return err
 }
 
-func waitForModelRegistrationTask(ctx context.Context, client *opensearch.Client, baseURL, taskID string) (string, error) {
+func waitForModelRegistrationTask(ctx context.Context, client *OpenSearchClient, baseURL, taskID string) (string, error) {
 	url := baseURL + fmt.Sprintf("/_plugins/_ml/tasks/%s", taskID)
 
 	deadline := time.Now().Add(maxModelRegistrationWait)
@@ -1028,7 +1027,7 @@ func waitForModelRegistrationTask(ctx context.Context, client *opensearch.Client
 
 // waitForModelDeploymentStateChange polls 'model_state' until it matches any of targetStates,
 // returning the observed state. Always errors on DEPLOY_FAILED or context cancellation/timeout.
-func waitForModelDeploymentStateChange(ctx context.Context, client *opensearch.Client, baseURL, modelID string, targetStates ...string) (string, error) {
+func waitForModelDeploymentStateChange(ctx context.Context, client *OpenSearchClient, baseURL, modelID string, targetStates ...string) (string, error) {
 	url := baseURL + fmt.Sprintf("/_plugins/_ml/models/%s", modelID)
 
 	isTarget := func(state string) bool {

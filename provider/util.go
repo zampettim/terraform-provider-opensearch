@@ -17,7 +17,6 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/mitchellh/go-homedir"
-	"github.com/opensearch-project/opensearch-go/v2"
 )
 
 func normalizeChannelConfiguration(tpl map[string]interface{}) {
@@ -505,7 +504,7 @@ func (e *HTTPError) Error() string {
 
 // Performs an HTTP request to OpenSearch and parses the JSON response.
 // Handles error checking and returns a structured error message on failure.
-func performRequestAndParse(ctx context.Context, client *opensearch.Client, method, url string, body io.Reader, operation string) (map[string]interface{}, error) {
+func performRequestAndParse(ctx context.Context, client *OpenSearchClient, method, url string, body io.Reader, operation string) (map[string]interface{}, error) {
 	req, err := http.NewRequestWithContext(ctx, method, url, body)
 	if err != nil {
 		return nil, fmt.Errorf("error creating request to %s: %s", operation, err)

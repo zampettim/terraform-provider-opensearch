@@ -9,7 +9,7 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"github.com/opensearch-project/opensearch-go/v2"
+	"github.com/opensearch-project/opensearch-go/v4"
 )
 
 // fakeMLModelServer simulates the OpenSearch ML Model API for unit-testing the
@@ -62,7 +62,7 @@ func (f *fakeMLModelServer) conf(t *testing.T) *ProviderConf {
 	if err != nil {
 		t.Fatalf("failed to create opensearch client: %v", err)
 	}
-	return &ProviderConf{rawUrl: f.server.URL, osClient: client}
+	return &ProviderConf{rawUrl: f.server.URL, osClient: &OpenSearchClient{client: client}}
 }
 
 func TestDeployMLModel_HappyPath(t *testing.T) {
