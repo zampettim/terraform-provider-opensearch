@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/opensearch-project/opensearch-go/v4"
+	"github.com/opensearch-project/opensearch-go/v4/opensearchapi"
 )
 
 // fakePredictServer simulates the OpenSearch _predict endpoint for unit-testing
@@ -78,7 +79,7 @@ func (f *fakePredictServer) conf(t *testing.T) *ProviderConf {
 	if err != nil {
 		t.Fatalf("failed to create opensearch client: %v", err)
 	}
-	return &ProviderConf{rawUrl: f.server.URL, osClient: &OpenSearchClient{client: client}}
+	return &ProviderConf{rawUrl: f.server.URL, osClient: &OpenSearchClient{Client: &opensearchapi.Client{Client: client}}}
 }
 
 func shortenPredictProbeTimings(t *testing.T, timeout time.Duration) {

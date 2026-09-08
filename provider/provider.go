@@ -71,8 +71,8 @@ type ProviderConf struct {
 	keyPemPath               string
 	hostOverride             string
 	proxy                    string
-	maxRetries              int
-	retryBackoffInitialMs   int
+	maxRetries               int
+	retryBackoffInitialMs    int
 	// determined after connecting to the server
 	flavor ServerFlavor
 
@@ -309,6 +309,14 @@ func getOpenSearchClient(conf *ProviderConf) (*OpenSearchClient, error) {
 		return nil, fmt.Errorf("failed to create OpenSearch client: %w", err)
 	}
 
+	_, awsService := resolveOpenSearchAWSConfig(conf)
+	if conf.signAWSRequests && awsService == "aoss" {
+		conf.flavor = OpenSearch
+		if conf.osVersion == "" {
+			conf.osVersion = minimalOpensearchServerlessVersion
+		}
+	}
+
 	conf.osClient = client
 	return client, nil
 }
@@ -321,36 +329,36 @@ func providerConfigure(c context.Context, d *schema.ResourceData) (interface{}, 
 	}
 
 	conf := &ProviderConf{
-		rawUrl:                  rawUrl,
-		parsedUrl:               parsedUrl,
-		sniffing:                d.Get("sniff").(bool),
-		healthchecking:          d.Get("healthcheck").(bool),
-		username:                d.Get("username").(string),
-		password:                d.Get("password").(string),
-		token:                   d.Get("token").(string),
-		tokenName:               d.Get("token_name").(string),
-		insecure:                d.Get("insecure").(bool),
-		cacertFile:              d.Get("cacert_file").(string),
-		signAWSRequests:         d.Get("sign_aws_requests").(bool),
-		osVersion:               d.Get("opensearch_version").(string),
-		pingTimeoutSeconds:      resolveIntField(d, "ping_timeout_seconds", "version_ping_timeout", 5),
-		awsRegion:               d.Get("aws_region").(string),
-		awsAssumeRoleArn:        d.Get("aws_assume_role_arn").(string),
-		awsAssumeRoleExternalID: d.Get("aws_assume_role_external_id").(string),
+		rawUrl:                   rawUrl,
+		parsedUrl:                parsedUrl,
+		sniffing:                 d.Get("sniff").(bool),
+		healthchecking:           d.Get("healthcheck").(bool),
+		username:                 d.Get("username").(string),
+		password:                 d.Get("password").(string),
+		token:                    d.Get("token").(string),
+		tokenName:                d.Get("token_name").(string),
+		insecure:                 d.Get("insecure").(bool),
+		cacertFile:               d.Get("cacert_file").(string),
+		signAWSRequests:          d.Get("sign_aws_requests").(bool),
+		osVersion:                d.Get("opensearch_version").(string),
+		pingTimeoutSeconds:       resolveIntField(d, "ping_timeout_seconds", "version_ping_timeout", 5),
+		awsRegion:                d.Get("aws_region").(string),
+		awsAssumeRoleArn:         d.Get("aws_assume_role_arn").(string),
+		awsAssumeRoleExternalID:  d.Get("aws_assume_role_external_id").(string),
 		awsAssumeRoleSessionName: d.Get("aws_assume_role_session_name").(string),
 		awsWebIdentityRoleArn:    d.Get("aws_web_identity_role_arn").(string),
 		awsWebIdentityTokenFile:  d.Get("aws_web_identity_token_file").(string),
-		awsAccessKeyId:          d.Get("aws_access_key").(string),
-		awsSecretAccessKey:      d.Get("aws_secret_key").(string),
-		awsSessionToken:         resolveStringField(d, "aws_session_token", "aws_token"),
-		awsSig4Service:          d.Get("aws_signature_service").(string),
-		awsProfile:              d.Get("aws_profile").(string),
-		certPemPath:             d.Get("client_cert_path").(string),
-		keyPemPath:              d.Get("client_key_path").(string),
-		hostOverride:            d.Get("host_override").(string),
-		proxy:                   d.Get("proxy").(string),
-		maxRetries:              d.Get("max_retries").(int),
-		retryBackoffInitialMs:   d.Get("retry_backoff_initial_ms").(int),
+		awsAccessKeyId:           d.Get("aws_access_key").(string),
+		awsSecretAccessKey:       d.Get("aws_secret_key").(string),
+		awsSessionToken:          resolveStringField(d, "aws_session_token", "aws_token"),
+		awsSig4Service:           d.Get("aws_signature_service").(string),
+		awsProfile:               d.Get("aws_profile").(string),
+		certPemPath:              d.Get("client_cert_path").(string),
+		keyPemPath:               d.Get("client_key_path").(string),
+		hostOverride:             d.Get("host_override").(string),
+		proxy:                    d.Get("proxy").(string),
+		maxRetries:               d.Get("max_retries").(int),
+		retryBackoffInitialMs:    d.Get("retry_backoff_initial_ms").(int),
 	}
 
 	resolveAWSWebIdentityEnv(conf)
