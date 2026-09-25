@@ -194,6 +194,10 @@ func resourceOpensearchMLConnector() *schema.Resource {
 
 func resourceOpensearchMLConnectorCreate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	conf := m.(*ProviderConf)
+	client, err := getOpenSearchClient(conf)
+	if err != nil {
+		return diag.FromErr(err)
+	}
 
 	payload, err := buildConnectorPayload(d)
 	if err != nil {
@@ -206,7 +210,7 @@ func resourceOpensearchMLConnectorCreate(ctx context.Context, d *schema.Resource
 	}
 
 	url := conf.rawUrl + "/_plugins/_ml/connectors/_create"
-	result, err := performRequestAndParse(ctx, conf.osClient, "POST", url, strings.NewReader(string(jsonPayload)), "create ML Connector")
+	result, err := performRequestAndParse(ctx, client, "POST", url, strings.NewReader(string(jsonPayload)), "create ML Connector")
 	if err != nil {
 		return diag.FromErr(err)
 	}
@@ -222,9 +226,13 @@ func resourceOpensearchMLConnectorCreate(ctx context.Context, d *schema.Resource
 
 func resourceOpensearchMLConnectorRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	conf := m.(*ProviderConf)
+	client, err := getOpenSearchClient(conf)
+	if err != nil {
+		return diag.FromErr(err)
+	}
 
 	url := conf.rawUrl + fmt.Sprintf("/_plugins/_ml/connectors/%s", d.Id())
-	connector, err := performRequestAndParse(ctx, conf.osClient, "GET", url, nil, "read ML Connector")
+	connector, err := performRequestAndParse(ctx, client, "GET", url, nil, "read ML Connector")
 	if err != nil {
 		var httpErr *HTTPError
 		if errors.As(err, &httpErr) && httpErr.StatusCode == http.StatusNotFound {
@@ -352,6 +360,10 @@ func resourceOpensearchMLConnectorRead(ctx context.Context, d *schema.ResourceDa
 
 func resourceOpensearchMLConnectorUpdate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	conf := m.(*ProviderConf)
+	client, err := getOpenSearchClient(conf)
+	if err != nil {
+		return diag.FromErr(err)
+	}
 
 	payload, err := buildConnectorPayload(d)
 	if err != nil {
@@ -364,7 +376,7 @@ func resourceOpensearchMLConnectorUpdate(ctx context.Context, d *schema.Resource
 	}
 
 	url := conf.rawUrl + fmt.Sprintf("/_plugins/_ml/connectors/%s", d.Id())
-	if _, err := performRequestAndParse(ctx, conf.osClient, "PUT", url, strings.NewReader(string(jsonPayload)), "update ML Connector"); err != nil {
+	if _, err := performRequestAndParse(ctx, client, "PUT", url, strings.NewReader(string(jsonPayload)), "update ML Connector"); err != nil {
 		return diag.FromErr(err)
 	}
 
@@ -373,9 +385,13 @@ func resourceOpensearchMLConnectorUpdate(ctx context.Context, d *schema.Resource
 
 func resourceOpensearchMLConnectorDelete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	conf := m.(*ProviderConf)
+	client, err := getOpenSearchClient(conf)
+	if err != nil {
+		return diag.FromErr(err)
+	}
 
 	url := conf.rawUrl + fmt.Sprintf("/_plugins/_ml/connectors/%s", d.Id())
-	_, err := performRequestAndParse(ctx, conf.osClient, "DELETE", url, nil, "delete ML Connector")
+	_, err = performRequestAndParse(ctx, client, "DELETE", url, nil, "delete ML Connector")
 	if err != nil {
 		var httpErr *HTTPError
 		// Ignore 404 errors - resource is already deleted
@@ -393,8 +409,12 @@ func resourceOpensearchMLConnectorDelete(ctx context.Context, d *schema.Resource
 // ============================================
 
 func getMLConnectorFromAPI(ctx context.Context, conf *ProviderConf, connectorID string) (map[string]interface{}, error) {
+	client, err := getOpenSearchClient(conf)
+	if err != nil {
+		return nil, err
+	}
 	url := conf.rawUrl + fmt.Sprintf("/_plugins/_ml/connectors/%s", connectorID)
-	return performRequestAndParse(ctx, conf.osClient, "GET", url, nil, "get ML Connector")
+	return performRequestAndParse(ctx, client, "GET", url, nil, "get ML Connector")
 }
 
 func buildConnectorPayload(d *schema.ResourceData) (map[string]interface{}, error) {

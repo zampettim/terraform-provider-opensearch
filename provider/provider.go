@@ -363,10 +363,6 @@ func providerConfigure(c context.Context, d *schema.ResourceData) (interface{}, 
 
 	resolveAWSWebIdentityEnv(conf)
 
-	if _, err := getOpenSearchClient(conf); err != nil {
-		return nil, diag.FromErr(err)
-	}
-
 	return conf, awsCredentialWarnings(conf)
 }
 

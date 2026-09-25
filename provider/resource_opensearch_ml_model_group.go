@@ -68,6 +68,10 @@ func resourceOpensearchMLModelGroup() *schema.Resource {
 
 func resourceOpensearchMLModelGroupCreate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	conf := m.(*ProviderConf)
+	client, err := getOpenSearchClient(conf)
+	if err != nil {
+		return diag.FromErr(err)
+	}
 
 	payload := buildMLModelGroupPayload(d)
 	jsonPayload, err := json.Marshal(payload)
@@ -76,7 +80,7 @@ func resourceOpensearchMLModelGroupCreate(ctx context.Context, d *schema.Resourc
 	}
 
 	url := conf.rawUrl + "/_plugins/_ml/model_groups/_register"
-	result, err := performRequestAndParse(ctx, conf.osClient, "POST", url, strings.NewReader(string(jsonPayload)), "register ML Model Group")
+	result, err := performRequestAndParse(ctx, client, "POST", url, strings.NewReader(string(jsonPayload)), "register ML Model Group")
 	if err != nil {
 		return diag.FromErr(err)
 	}
@@ -140,6 +144,10 @@ func resourceOpensearchMLModelGroupRead(ctx context.Context, d *schema.ResourceD
 
 func resourceOpensearchMLModelGroupUpdate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	conf := m.(*ProviderConf)
+	client, err := getOpenSearchClient(conf)
+	if err != nil {
+		return diag.FromErr(err)
+	}
 
 	payload := buildMLModelGroupPayload(d)
 	jsonPayload, err := json.Marshal(payload)
@@ -148,7 +156,7 @@ func resourceOpensearchMLModelGroupUpdate(ctx context.Context, d *schema.Resourc
 	}
 
 	url := conf.rawUrl + fmt.Sprintf("/_plugins/_ml/model_groups/%s", d.Id())
-	if _, err := performRequestAndParse(ctx, conf.osClient, "PUT", url, strings.NewReader(string(jsonPayload)), "update ML Model Group"); err != nil {
+	if _, err := performRequestAndParse(ctx, client, "PUT", url, strings.NewReader(string(jsonPayload)), "update ML Model Group"); err != nil {
 		return diag.FromErr(err)
 	}
 
@@ -157,9 +165,13 @@ func resourceOpensearchMLModelGroupUpdate(ctx context.Context, d *schema.Resourc
 
 func resourceOpensearchMLModelGroupDelete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	conf := m.(*ProviderConf)
+	client, err := getOpenSearchClient(conf)
+	if err != nil {
+		return diag.FromErr(err)
+	}
 
 	url := conf.rawUrl + fmt.Sprintf("/_plugins/_ml/model_groups/%s", d.Id())
-	_, err := performRequestAndParse(ctx, conf.osClient, "DELETE", url, nil, "delete ML Model Group")
+	_, err = performRequestAndParse(ctx, client, "DELETE", url, nil, "delete ML Model Group")
 	if err != nil {
 		var httpErr *HTTPError
 		// Ignore 404 errors - resource is already deleted
@@ -198,6 +210,10 @@ func buildMLModelGroupPayload(d *schema.ResourceData) map[string]interface{} {
 }
 
 func getMLModelGroupFromAPI(ctx context.Context, conf *ProviderConf, modelGroupID string) (map[string]interface{}, error) {
+	client, err := getOpenSearchClient(conf)
+	if err != nil {
+		return nil, err
+	}
 	url := conf.rawUrl + fmt.Sprintf("/_plugins/_ml/model_groups/%s", modelGroupID)
-	return performRequestAndParse(ctx, conf.osClient, "GET", url, nil, "get ML Model Group")
+	return performRequestAndParse(ctx, client, "GET", url, nil, "get ML Model Group")
 }

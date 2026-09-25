@@ -397,6 +397,10 @@ func resourceOpensearchMLModel() *schema.Resource {
 
 func resourceOpensearchMLModelCreate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	conf := m.(*ProviderConf)
+	client, err := getOpenSearchClient(conf)
+	if err != nil {
+		return diag.FromErr(err)
+	}
 
 	payload := map[string]interface{}{
 		"name":           d.Get("name").(string),
@@ -492,7 +496,7 @@ func resourceOpensearchMLModelCreate(ctx context.Context, d *schema.ResourceData
 		return diag.Errorf("failed to marshal ML Model payload: %s", err)
 	}
 
-	result, err := performRequestAndParse(ctx, conf.osClient, "POST", conf.rawUrl+"/_plugins/_ml/models/_register", strings.NewReader(string(jsonPayload)), "register ML Model")
+	result, err := performRequestAndParse(ctx, client, "POST", conf.rawUrl+"/_plugins/_ml/models/_register", strings.NewReader(string(jsonPayload)), "register ML Model")
 	if err != nil {
 		return diag.FromErr(err)
 	}
@@ -504,7 +508,7 @@ func resourceOpensearchMLModelCreate(ctx context.Context, d *schema.ResourceData
 		modelID = id
 	} else if taskID, ok := result["task_id"].(string); ok && taskID != "" {
 		// Async registration (OS-provided pretrained and custom models) - poll for task completion
-		modelID, err = waitForModelRegistrationTask(ctx, conf.osClient, conf.rawUrl, taskID)
+		modelID, err = waitForModelRegistrationTask(ctx, client, conf.rawUrl, taskID)
 		if err != nil {
 			return diag.FromErr(err)
 		}
@@ -676,6 +680,10 @@ func resourceOpensearchMLModelRead(ctx context.Context, d *schema.ResourceData, 
 
 func resourceOpensearchMLModelUpdate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	conf := m.(*ProviderConf)
+	client, err := getOpenSearchClient(conf)
+	if err != nil {
+		return diag.FromErr(err)
+	}
 
 	payload := make(map[string]interface{})
 
@@ -772,7 +780,7 @@ func resourceOpensearchMLModelUpdate(ctx context.Context, d *schema.ResourceData
 		return diag.Errorf("failed to marshal ML Model update payload: %s", err)
 	}
 
-	if _, err := performRequestAndParse(ctx, conf.osClient, "PUT", conf.rawUrl+fmt.Sprintf("/_plugins/_ml/models/%s", d.Id()), strings.NewReader(string(jsonPayload)), "update ML Model"); err != nil {
+	if _, err := performRequestAndParse(ctx, client, "PUT", conf.rawUrl+fmt.Sprintf("/_plugins/_ml/models/%s", d.Id()), strings.NewReader(string(jsonPayload)), "update ML Model"); err != nil {
 		return diag.FromErr(err)
 	}
 
@@ -781,13 +789,17 @@ func resourceOpensearchMLModelUpdate(ctx context.Context, d *schema.ResourceData
 
 func resourceOpensearchMLModelDelete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	conf := m.(*ProviderConf)
+	client, err := getOpenSearchClient(conf)
+	if err != nil {
+		return diag.FromErr(err)
+	}
 
 	if err := undeployMLModel(ctx, conf, d.Id()); err != nil {
 		return diag.Errorf("error undeploying ML Model: %s", err)
 	}
 
 	url := conf.rawUrl + fmt.Sprintf("/_plugins/_ml/models/%s", d.Id())
-	_, err := performRequestAndParse(ctx, conf.osClient, "DELETE", url, nil, "delete ML Model")
+	_, err = performRequestAndParse(ctx, client, "DELETE", url, nil, "delete ML Model")
 	if err != nil {
 		var httpErr *HTTPError
 		// Ignore 404 errors - resource is already deleted
@@ -805,8 +817,12 @@ func resourceOpensearchMLModelDelete(ctx context.Context, d *schema.ResourceData
 // ============================================
 
 func getMLModelFromAPI(ctx context.Context, conf *ProviderConf, modelID string) (map[string]interface{}, error) {
+	client, err := getOpenSearchClient(conf)
+	if err != nil {
+		return nil, err
+	}
 	url := conf.rawUrl + fmt.Sprintf("/_plugins/_ml/models/%s", modelID)
-	return performRequestAndParse(ctx, conf.osClient, "GET", url, nil, "get ML Model")
+	return performRequestAndParse(ctx, client, "GET", url, nil, "get ML Model")
 }
 
 func buildGuardrailsPayload(guardrailsMap map[string]interface{}) map[string]interface{} {
@@ -911,12 +927,16 @@ func buildModelConfigPayload(modelConfigMap map[string]interface{}) map[string]i
 }
 
 func setMLModelEnabled(ctx context.Context, conf *ProviderConf, modelID string, modelName string, enabled bool) error {
+	client, err := getOpenSearchClient(conf)
+	if err != nil {
+		return err
+	}
 	jsonPayload, err := json.Marshal(map[string]interface{}{"is_enabled": enabled})
 	if err != nil {
 		return fmt.Errorf("failed to marshal 'is_enabled' update payload: %w", err)
 	}
 	url := conf.rawUrl + fmt.Sprintf("/_plugins/_ml/models/%s", modelID)
-	_, err = performRequestAndParse(ctx, conf.osClient, "PUT", url, strings.NewReader(string(jsonPayload)), "update ML Model 'is_enabled'")
+	_, err = performRequestAndParse(ctx, client, "PUT", url, strings.NewReader(string(jsonPayload)), "update ML Model 'is_enabled'")
 	if err != nil {
 		// Some model types (e.g. OpenSearch-provided pretrained SPARSE_ENCODING models) reject the update
 		// of the 'is_enabled' parameter with a 403 "... is not supported at this time". For those, 'is_enabled'
@@ -965,15 +985,23 @@ func deployMLModel(ctx context.Context, conf *ProviderConf, modelID string) erro
 }
 
 func deployAndWaitForModel(ctx context.Context, conf *ProviderConf, modelID string) (string, error) {
-	if _, err := performRequestAndParse(ctx, conf.osClient, "POST", conf.rawUrl+fmt.Sprintf("/_plugins/_ml/models/%s/_deploy", modelID), nil, "deploy ML Model"); err != nil {
+	client, err := getOpenSearchClient(conf)
+	if err != nil {
+		return "", err
+	}
+	if _, err := performRequestAndParse(ctx, client, "POST", conf.rawUrl+fmt.Sprintf("/_plugins/_ml/models/%s/_deploy", modelID), nil, "deploy ML Model"); err != nil {
 		return "", err
 	}
 
-	return waitForModelDeploymentStateChange(ctx, conf.osClient, conf.rawUrl, modelID, "DEPLOYED", "PARTIALLY_DEPLOYED", "UNDEPLOYED")
+	return waitForModelDeploymentStateChange(ctx, client, conf.rawUrl, modelID, "DEPLOYED", "PARTIALLY_DEPLOYED", "UNDEPLOYED")
 }
 
 func undeployMLModel(ctx context.Context, conf *ProviderConf, modelID string) error {
-	_, err := performRequestAndParse(ctx, conf.osClient, "POST", conf.rawUrl+fmt.Sprintf("/_plugins/_ml/models/%s/_undeploy", modelID), nil, "undeploy ML Model")
+	client, err := getOpenSearchClient(conf)
+	if err != nil {
+		return err
+	}
+	_, err = performRequestAndParse(ctx, client, "POST", conf.rawUrl+fmt.Sprintf("/_plugins/_ml/models/%s/_undeploy", modelID), nil, "undeploy ML Model")
 	if err != nil {
 		// Ignore errors if model is not found or not deployed (already in desired state).
 		var httpErr *HTTPError
@@ -987,7 +1015,7 @@ func undeployMLModel(ctx context.Context, conf *ProviderConf, modelID string) er
 		return err
 	}
 
-	_, err = waitForModelDeploymentStateChange(ctx, conf.osClient, conf.rawUrl, modelID, "UNDEPLOYED", "REGISTERED")
+	_, err = waitForModelDeploymentStateChange(ctx, client, conf.rawUrl, modelID, "UNDEPLOYED", "REGISTERED")
 	return err
 }
 
@@ -1079,6 +1107,10 @@ func waitForModelDeploymentStateChange(ctx context.Context, client *OpenSearchCl
 }
 
 func waitForModelPredictReady(ctx context.Context, conf *ProviderConf, modelID string, probeBody string) error {
+	client, err := getOpenSearchClient(conf)
+	if err != nil {
+		return err
+	}
 	url := conf.rawUrl + fmt.Sprintf("/_plugins/_ml/models/%s/_predict", modelID)
 	deadline := time.Now().Add(maxPredictProbeWait)
 
@@ -1089,7 +1121,7 @@ func waitForModelPredictReady(ctx context.Context, conf *ProviderConf, modelID s
 		default:
 		}
 
-		result, err := performRequestAndParse(ctx, conf.osClient, "POST", url,
+		result, err := performRequestAndParse(ctx, client, "POST", url,
 			strings.NewReader(probeBody), "probe ML Model predict readiness")
 		if err == nil {
 			if _, ok := result["inference_results"]; ok {
