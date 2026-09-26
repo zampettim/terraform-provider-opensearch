@@ -72,7 +72,7 @@ func resourceOpensearchScriptCreate(d *schema.ResourceData, m interface{}) error
 	if err == nil {
 		log.Printf("[INFO] script exists: %+v", err)
 		return fmt.Errorf("script already exists with ID: %v", scriptID)
-	} else if err != nil && !elastic7.IsNotFound(err) {
+	} else if !elastic7.IsNotFound(err) {
 		return err
 	}
 

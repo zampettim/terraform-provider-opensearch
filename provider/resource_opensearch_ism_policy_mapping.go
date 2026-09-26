@@ -244,9 +244,12 @@ func resourceOpensearchPostOpendistroPolicyMapping(d *schema.ResourceData, m int
 	}
 	body = &res.Body
 
+	/*
+	** Impossible State. TBD why error message is different
 	if err != nil {
 		return response, fmt.Errorf("error creating policy mapping: %+v", err)
 	}
+    */
 
 	if err := json.Unmarshal(*body, response); err != nil {
 		return response, fmt.Errorf("error unmarshalling policy body: %+v: %+v", err, body)
@@ -279,10 +282,13 @@ func resourceOpensearchGetOpendistroPolicyMapping(indexPattern string, m interfa
 	}
 	body = &res.Body
 
+	/*
+	** Impossible state. TBD why error message is different
 	if err != nil {
 		return *response, fmt.Errorf("error creating policy mapping: %+v", err)
 	}
-
+    */
+	
 	if err := json.Unmarshal(*body, response); err != nil {
 		return *response, fmt.Errorf("error unmarshalling policy explain body: %+v: %+v", err, body)
 	}

@@ -138,9 +138,6 @@ func testCheckOpensearchSecurityAuditConfigExists(name string) resource.TestChec
 			meta := testAccOpendistroProvider.Meta()
 
 			var err error
-			if err != nil {
-				return err
-			}
 			_, err = resourceOpensearchGetAuditConfig(meta.(*ProviderConf))
 
 			if err != nil {
@@ -165,9 +162,6 @@ func testCheckOpensearchSecurityAuditConfigConnects(name string) resource.TestCh
 			password := rs.Primary.Attributes["password"]
 
 			var err error
-			if err != nil {
-				return err
-			}
 			var client *elastic7.Client
 			client, err = elastic7.NewClient(
 				elastic7.SetURL(os.Getenv("OPENSEARCH_URL")),

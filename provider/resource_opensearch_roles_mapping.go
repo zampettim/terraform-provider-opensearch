@@ -169,9 +169,6 @@ func resourceOpensearchGetOpenDistroRolesMapping(roleID string, m interface{}) (
 	}
 	body = res.Body
 
-	if err != nil {
-		return *roleMapping, err
-	}
 	var rolesMappingDefinition map[string]RolesMapping
 
 	if err := json.Unmarshal(body, &rolesMappingDefinition); err != nil {

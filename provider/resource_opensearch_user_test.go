@@ -169,9 +169,6 @@ func testCheckOpensearchUserConnects(name string) resource.TestCheckFunc {
 			}
 
 			var err error
-			if err != nil {
-				return err
-			}
 			var client *elastic7.Client
 			client, err = elastic7.NewClient(
 				elastic7.SetURL(os.Getenv("OPENSEARCH_URL")))

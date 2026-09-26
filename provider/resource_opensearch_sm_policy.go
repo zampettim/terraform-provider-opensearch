@@ -182,10 +182,6 @@ func resourceOpensearchGetSMPolicy(policyName string, m interface{}) (SMPolicyRe
 	}
 	body = &res.Body
 
-	if err != nil {
-		return *response, err
-	}
-
 	if err := json.Unmarshal(*body, &response); err != nil {
 		return *response, fmt.Errorf("error unmarshalling policy body: %+v: %+v", err, body)
 	}
@@ -235,9 +231,12 @@ func resourceOpensearchPostPutSMPolicy(d *schema.ResourceData, m interface{}, me
 	}
 	body = &res.Body
 
+	/*
+	** Impossible State, TBD why error message different
 	if err != nil {
 		return response, fmt.Errorf("error creating policy mapping: %+v", err)
 	}
+    */
 
 	if err := json.Unmarshal(*body, response); err != nil {
 		return response, fmt.Errorf("error unmarshalling policy body: %+v: %+v", err, body)

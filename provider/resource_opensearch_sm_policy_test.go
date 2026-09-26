@@ -77,9 +77,6 @@ func testCheckOpensearchSMPolicyDestroy(s *terraform.State) error {
 		meta := testAccOpendistroProvider.Meta()
 
 		var err error
-		if err != nil {
-			return err
-		}
 		_, err = resourceOpensearchGetSMPolicy(rs.Primary.Attributes["policy_name"], meta.(*ProviderConf))
 
 		if err != nil {

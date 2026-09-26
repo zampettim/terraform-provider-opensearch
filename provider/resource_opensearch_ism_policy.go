@@ -142,10 +142,6 @@ func resourceOpensearchISMPolicyDelete(d *schema.ResourceData, m interface{}) er
 		return fmt.Errorf("error deleting policy: %+v : %+v", path, err)
 	}
 
-	if err != nil {
-		return fmt.Errorf("error deleting policy: %+v : %+v", path, err)
-	}
-
 	return err
 }
 
@@ -176,10 +172,6 @@ func resourceOpensearchGetISMPolicy(policyID string, m interface{}) (GetPolicyRe
 		return *response, fmt.Errorf("error getting policy: %+v : %+v", path, err)
 	}
 	body = &res.Body
-
-	if err != nil {
-		return *response, err
-	}
 
 	if err := json.Unmarshal(*body, &response); err != nil {
 		return *response, fmt.Errorf("error unmarshalling policy body: %+v: %+v", err, body)
@@ -230,9 +222,12 @@ func resourceOpensearchPutISMPolicy(d *schema.ResourceData, m interface{}) (*Put
 	}
 	body = &res.Body
 
+	/*
+	** Impossible state: TBD why error message is different
 	if err != nil {
 		return response, fmt.Errorf("error creating policy mapping: %+v", err)
 	}
+    */
 
 	if err := json.Unmarshal(*body, response); err != nil {
 		return response, fmt.Errorf("error unmarshalling policy body: %+v: %+v", err, body)
