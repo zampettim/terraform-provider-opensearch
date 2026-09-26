@@ -26,7 +26,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 
 	elastic7 "github.com/olivere/elastic/v7"
-	"github.com/opensearch-project/opensearch-go/v4"
 )
 
 type ServerFlavor int64
@@ -441,81 +440,6 @@ func awsCredentialWarnings(conf *ProviderConf) diag.Diagnostics {
 		})
 	}
 	return diags
-}
-
-func getOSClient(conf *ProviderConf) (*opensearch.Client, error) {
-	cfg := opensearch.Config{
-		Addresses: []string{conf.rawUrl},
-	}
-
-	if conf.username != "" && conf.password != "" {
-		cfg.Username = conf.username
-		cfg.Password = conf.password
-	} else if conf.parsedUrl.User.Username() != "" {
-		cfg.Username = conf.parsedUrl.User.Username()
-		if p, ok := conf.parsedUrl.User.Password(); ok {
-			cfg.Password = p
-		}
-	}
-
-	httpClient, err := createOSHttpClient(conf)
-	if err != nil {
-		return nil, err
-	}
-
-	cfg.Transport = httpClient.Transport
-
-	return opensearch.NewClient(cfg)
-}
-
-func createOSHttpClient(conf *ProviderConf) (*http.Client, error) {
-	if !conf.signAWSRequests {
-		return createNonAWSHttpClient(conf), nil
-	}
-
-	if m := awsUrlRegexp.FindStringSubmatch(conf.parsedUrl.Hostname()); m != nil {
-		return awsHttpClient(m[1], conf, map[string]string{})
-	}
-
-	if m := awsOpensearchServerlessUrlRegexp.FindStringSubmatch(conf.parsedUrl.Hostname()); m != nil {
-		client, err := awsHttpClient(m[1], conf, map[string]string{})
-		if err != nil {
-			return nil, err
-		}
-		client.Transport = Wrap(client.Transport)
-		return client, nil
-	}
-
-	if conf.awsSig4Service == "aoss" && conf.awsRegion != "" {
-		client, err := awsHttpClient(conf.awsRegion, conf, map[string]string{})
-		if err != nil {
-			return nil, err
-		}
-		client.Transport = Wrap(client.Transport)
-		return client, nil
-	}
-
-	if conf.awsRegion != "" {
-		return awsHttpClient(conf.awsRegion, conf, map[string]string{})
-	}
-
-	return createNonAWSHttpClient(conf), nil
-}
-
-func createNonAWSHttpClient(conf *ProviderConf) *http.Client {
-	if conf.insecure || conf.cacertFile != "" {
-		client := tlsHttpClient(conf, map[string]string{})
-		if conf.token != "" {
-			return tokenHttpClient(conf, map[string]string{})
-		}
-		return client
-	}
-
-	if conf.token != "" {
-		return tokenHttpClient(conf, map[string]string{})
-	}
-
-	return defaultHttpClient(conf, map[string]string{})
 }
 
 func getClient(conf *ProviderConf) (*elastic7.Client, error) {
