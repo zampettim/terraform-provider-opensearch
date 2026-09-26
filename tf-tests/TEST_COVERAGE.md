@@ -44,14 +44,16 @@
 | `opensearch_channel_configuration` | `tests/opensearch_channel_configuration.tftest.hcl` | ✅ | ✅ | ✅ | ❌ | ✅ | ✅ |
 | `opensearch_anomaly_detection` | `tests/opensearch_anomaly_detection.tftest.hcl` | ✅ | ✅ | N/A | ❌ | ✅ | ✅ |
 | `opensearch_sm_policy` | `tests/opensearch_sm_policy.tftest.hcl` | ✅ | ✅ | ✅ | ❌ | ✅ | ✅ |
-| `opensearch_ml_connector` | Not covered | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
-| `opensearch_ml_model_group` | Not covered | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
-| `opensearch_ml_model` | Not covered | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| `opensearch_ml_connector` | `tests/opensearch_ml_connector.tftest.hcl`, `tests/opensearch_ml_minimal.tftest.hcl` | ✅ | ✅ | ✅ | ❌ | ✅ | ✅ |
+| `opensearch_ml_model_group` | `tests/opensearch_ml_model_group.tftest.hcl`, `tests/opensearch_ml_minimal.tftest.hcl` | ✅ | ✅ | ✅ | ❌ | ✅ | ✅ |
+| `opensearch_ml_model` | `tests/opensearch_ml_minimal.tftest.hcl` | ✅ | ✅ | ✅ | ❌ | ✅ | ✅ |
 | `opensearch_host` (data source) | `tests/opensearch_host.tftest.hcl` | ✅ | N/A | N/A | N/A | ✅ | ✅ |
 
-**Resources with typed modules:** `opensearch_index`, `opensearch_role`, `opensearch_script`, `opensearch_audit_config`, `opensearch_dashboard_tenant`, `opensearch_roles_mapping`, `opensearch_cluster_settings`, `opensearch_snapshot_repository`, `opensearch_user`, `opensearch_ism_policy_mapping`.
+**Resources with typed modules:** `opensearch_index`, `opensearch_role`, `opensearch_script`, `opensearch_audit_config`, `opensearch_dashboard_tenant`, `opensearch_roles_mapping`, `opensearch_cluster_settings`, `opensearch_snapshot_repository`, `opensearch_user`, `opensearch_ism_policy_mapping`, `opensearch_ml_connector`, `opensearch_ml_model_group`, `opensearch_ml_model`.
 
 **Resources with JSON-body modules:** `opensearch_composable_index_template`, `opensearch_component_template`, `opensearch_ingest_pipeline`, `opensearch_ism_policy`, `opensearch_dashboard_object`, `opensearch_monitor`, `opensearch_channel_configuration`, `opensearch_anomaly_detection`, `opensearch_sm_policy`.
+
+**ML model test exception:** `opensearch_ml_model` has no separate test file; its minimal, full, and update scenarios run in `tests/opensearch_ml_minimal.tftest.hcl` alongside the required model-group and connector dependencies. Provider API error cases are omitted because Terraform native tests cannot currently assert them.
 
 ---
 
@@ -59,7 +61,7 @@
 
 | Test File | Run Blocks | Type |
 |-----------|------------|------|
-| **Unit Tests (21 files)** | | |
+| **Unit Tests (24 files)** | | |
 | `tests/opensearch_anomaly_detection.tftest.hcl` | 2 | Unit |
 | `tests/opensearch_audit_config.tftest.hcl` | 2 | Unit |
 | `tests/opensearch_channel_configuration.tftest.hcl` | 4 | Unit |
@@ -74,6 +76,9 @@
 | `tests/opensearch_ingest_pipeline.tftest.hcl` | 3 | Unit |
 | `tests/opensearch_ism_policy_mapping.tftest.hcl` | 3 | Unit |
 | `tests/opensearch_ism_policy.tftest.hcl` | 4 | Unit |
+| `tests/opensearch_ml_connector.tftest.hcl` | 3 | Unit |
+| `tests/opensearch_ml_model_group.tftest.hcl` | 4 | Unit |
+| `tests/opensearch_ml_minimal.tftest.hcl` | 8 | Unit |
 | `tests/opensearch_monitor.tftest.hcl` | 4 | Unit |
 | `tests/opensearch_role.tftest.hcl` | 3 | Unit |
 | `tests/opensearch_roles_mapping.tftest.hcl` | 3 | Unit |
@@ -86,8 +91,8 @@
 | `tests/multi_tenant_dashboards.tftest.hcl` | 11 | Integration |
 | `tests/production_cluster_setup.tftest.hcl` | 10 | Integration |
 | `tests/security_monitoring.tftest.hcl` | 6 | Integration |
-| **Total** | **98** | |
-| **Unit Tests** | **65** | |
+| **Total** | **113** | |
+| **Unit Tests** | **80** | |
 | **Integration Tests** | **33** | |
 
 ---
@@ -119,9 +124,9 @@
 
 ## Known Gaps
 
-1. **No negative/invalid tests exist** — The `expect_failures` tests were removed because they used module-level `variable` validations, not provider-level validation. Testing provider error handling requires passing malformed inputs directly through the module to the provider resource and asserting on provider errors. No such tests exist.
+1. **Negative/invalid cases are not represented in Terraform native tests** — the native test harness reports `Missing expected failure` for both provider API diagnostics and `ConflictsWith` schema errors, despite surfacing the underlying diagnostics. Keep these negative cases in Go acceptance tests.
 2. **JSON-body assertions require `jsondecode`** — Resources using an opaque `body` variable can still assert on individual nested fields by using `jsondecode(opensearch_*.this.body)["field"]` inside `plan`-run blocks. Typed modules remain preferable for naturally exposing individual attributes.
 3. **Audit config assertions are weak** — `opensearch_audit_config` tests only assert `enabled == true`, but the resource has many more fields (`compliance`, `audit` block, etc.) that are not verified.
 4. **Dashboard tenant lacks typed module** — `opensearch_dashboard_tenant` has `index` as a computed attribute, and `opensearch_dashboard_object` has `index` and `tenant_name`, but these typed attributes are not exposed in modules.
 5. **Data stream and anomaly detection are intrinsically limited** — Data streams cannot be updated in place, and anomaly detection detectors require indexed documents, so only minimal/plan tests are possible in unit tests. Integration tests address this by pre-populating data before exercising the provider.
-6. **ML resources are untested** — `opensearch_ml_connector`, `opensearch_ml_model_group`, and `opensearch_ml_model` are registered provider resources but have no Terraform test files or modules in this suite.
+6. **ML model API round-trip limitations remain** — custom `additional_config` and guardrail nested details are not returned by OpenSearch, so Terraform assertions cover only returned guardrail/model-config fields. Model import-state verification and resource-level predict-readiness polling are not currently covered; the latter is exercised by provider Go unit tests.

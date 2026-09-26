@@ -15,7 +15,7 @@ jobs:
     - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
       with:
         # This must be after the actions/checkout so the go.sum file is found
-        go-version: '1.25'
+        go-version: '1.26'
         cache-dependency-path: 'go.sum'
     - name: golangci-lint
       uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9.3.0
@@ -28,7 +28,7 @@ jobs:
   test:
     strategy:
       matrix:
-        go-version: ['1.25']
+        go-version: ['1.26']
         os: [ubuntu-latest]
         version: [2, 3]
     needs: [lint]
@@ -79,7 +79,7 @@ jobs:
     - name: Setup Go
       uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
       with:
-        go-version: '1.25'
+        go-version: '1.26'
         cache-dependency-path: 'go.sum'        
     - name: Load secret
       uses: 1password/load-secrets-action@70062d7a876d3eb6334754fa26efd2fbd90c32f2 # v5.0.1
